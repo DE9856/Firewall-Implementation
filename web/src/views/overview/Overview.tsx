@@ -97,6 +97,14 @@ export function Overview() {
     return () => { alive = false; };
   }, [journeyId]);
 
+  // Escape leaves a packet journey and returns to all traffic.
+  useEffect(() => {
+    if (!journeyId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setParams({ journey: "" }); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [journeyId]);
+
   const watchBlocked = () => {
     const pool: PacketRec[] = [...heldRing, ...recentPackets.filter((p) => p.verdict === "DROP")];
     const pick = pool.filter((p) => p.src && p.stage !== "parse").sort((a, b) => b.id - a.id)
@@ -145,7 +153,14 @@ export function Overview() {
             </div>
           </div>
           <div className="playbar" role="toolbar" aria-label="Animation controls">
-            <button className="btn small" onClick={watchBlocked} disabled={!stats}>Watch a blocked packet</button>
+            {journey ? (
+              <>
+                <button className="btn small primary" onClick={() => setParams({ journey: "" })}>Back to all traffic</button>
+                <span className="small">Watching packet <span className="mono">#{journey.packet.id}</span>. Other traffic is paused.</span>
+              </>
+            ) : (
+              <button className="btn small" onClick={watchBlocked} disabled={!stats}>Watch a blocked packet</button>
+            )}
             <div className="seg" role="group" aria-label="Animation speed">
               <span className="seg-label">Speed</span>
               {[[1, "Normal"], [0.5, "½×"], [0.25, "¼×"], [0.1, "⅒×"]].map(([v, l]) => (

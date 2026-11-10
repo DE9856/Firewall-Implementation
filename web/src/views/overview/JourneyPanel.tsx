@@ -71,7 +71,7 @@ export function JourneyPanel({ detail, journey, step, speed, onPlayPause, onNext
       <div className="panel-head">
         <div><h2>Packet <span className="mono">#{p.id}</span>'s journey</h2>
           <p className="muted small">{clock(p.t)} · {p.dir === "in" ? "coming in" : "going out"} · {p.service}</p></div>
-        <button className="btn ghost small" onClick={onClose} aria-label="Close journey"><Icon name="close" size={14} /></button>
+        <button className="btn ghost small" onClick={onClose} aria-label="Close journey" title="Back to all traffic (Esc)"><Icon name="close" size={14} /></button>
       </div>
       <p className="j-addr mono">{endpoint(p.src, p.sport)} → {endpoint(p.dst, p.dport)} <span className="faint">{p.proto.toUpperCase()} {info(p)}</span></p>
       {!step.onMap && <p className="j-note">This packet's path is not on the map right now (it may be older than the map's time window), so here is its trip stage by stage.</p>}
@@ -97,6 +97,7 @@ export function JourneyPanel({ detail, journey, step, speed, onPlayPause, onNext
         {step.onMap && <button className="btn small" onClick={onNext} disabled={step.done}>Next stage</button>}
         {step.onMap && <button className="btn small ghost" onClick={onReplay}>Replay</button>}
         <button className="btn small ghost" onClick={onAnother}>Another blocked packet</button>
+        <button className="btn small primary" onClick={onClose}>Back to all traffic</button>
       </div>
       <p className="faint small j-foot">
         Playing at {speed === 1 ? "normal speed" : `${speed}× speed`}; the dot pauses at every stage it passes.{" "}
