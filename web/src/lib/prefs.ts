@@ -2,8 +2,8 @@ import { useSyncExternalStore } from "react";
 
 // Per-viewer display preferences, kept in this browser only.
 const KEY = "pywall.prefs";
-type Prefs = { animate: boolean; intro: boolean };
-let prefs: Prefs = { animate: true, intro: true };
+type Prefs = { animate: boolean; intro: boolean; speed: number; onlyBlocked: boolean };
+let prefs: Prefs = { animate: true, intro: true, speed: 1, onlyBlocked: false };
 try { prefs = { ...prefs, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { /* storage unavailable */ }
 const subs = new Set<() => void>();
 

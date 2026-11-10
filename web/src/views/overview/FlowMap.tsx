@@ -21,7 +21,26 @@ type RouteFlow = { src: string; service: string; stage: PacketRec["stage"]; verd
 // A dot remembers its packet (not a route object) and how far along its journey it is, as a
 // fraction. The layout is rebuilt about once a second as totals change; the dot then
 // continues on the new route from the same fraction instead of disappearing.
-interface Dot { f: RouteFlow; key: string; t: number; }
+interface Dot { f: RouteFlow; key: string; t: number; label?: string; hold?: number; }
+
+/** Why a blocked packet was stopped, in a few words (shown on its tag). */
+export function shortReason(p: PacketRec): string {
+  if (p.rateLimited) return "rate limit";
+  if (p.stage === "rule" && p.rule != null) return `rule ${p.rule}: ${p.ruleName ?? ""}`.trim();
+  return ({ ids_ban: "banned source", ids: "attack detected", conntrack: "no matching connection",
+    policy: "default policy", blacklist: "blacklisted", whitelist: "whitelisted", parse: "malformed" } as Record<string, string>)[p.stage] ?? p.stage;
+}
+
+/** A single packet followed slowly through the pipeline, stage by stage. */
+export interface Journey {
+  packet: PacketRec;
+  stages: { stage: string; verdict: string | null }[];   // the explanation's stages, in order
+  playing: boolean;
+  nonce: number;                                          // bump to restart
+  advance: number;                                        // bump to skip to the next stage
+}
+const STAGE_NAME: Record<string, string> = { parse: "Parse", whitelist: "Lists", blacklist: "Lists", ids_ban: "Bans", ids: "IDS", conntrack: "State", rule: "Rules", policy: "Policy" };
+const STAGE_COL: Record<string, number> = { parse: 0, whitelist: 1, blacklist: 1, ids_ban: 2, ids: 3, conntrack: 4, rule: 5, policy: 6 };
 
 function usePrefersReducedMotion() {
   const [reduced, set] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -34,8 +53,9 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld = 0 }: {
+export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld = 0, speed = 1, onlyBlocked = false, journey = null, onJourneyStep }: {
   flows: FlowRec[]; selection: Selection; onSelect: (s: Selection) => void; animate: boolean; height: number; parseHeld?: number;
+  speed?: number; onlyBlocked?: boolean; journey?: Journey | null; onJourneyStep?: (step: number, done: boolean, onMap: boolean) => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -59,6 +79,8 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
   layoutRef.current = L;
   const selRef = useRef(selection);
   selRef.current = selection;
+  const opts = useRef({ speed, onlyBlocked, journey, onJourneyStep });
+  opts.current = { speed, onlyBlocked, journey, onJourneyStep };
 
   // ---------------------------------------------------------- packet dots
   useEffect(() => {
@@ -69,6 +91,8 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
     const lengths = new Map<string, number[]>();
     let raf = 0, last = performance.now();
     let lastLayout = layoutRef.current;
+    // journey playback state: which stage we are heading for, and how far along the route we are
+    const J = { nonce: -1, advance: 0, target: 1, s: 0, hold: 0, done: false, reportedDone: false, key: "" as string, lastStep: -1 };
 
     const cum = (key: string) => {
       let c = lengths.get(key);
@@ -80,18 +104,58 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
       }
       return c;
     };
+    const at = (key: string, s: number): [number, number] => {
+      const c = cum(key), pts = layoutRef.current.routes.get(key)!.pts;
+      let j = 1;
+      while (j < c.length - 1 && c[j] < s) j++;
+      const seg = c[j] - c[j - 1] || 1, f = Math.max(0, Math.min(1, (s - c[j - 1]) / seg));
+      return [pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * f, pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * f];
+    };
+    const tag = (x: number, y: number, text: string, tone: "block" | "allow" | "plain") => {
+      ctx.font = "500 12px 'Public Sans', system-ui, sans-serif";
+      const w = ctx.measureText(text).width + 12, Lc = layoutRef.current;
+      const tx = Math.min(Math.max(4, x + 8), Lc.width - w - 4), ty = Math.max(4, y - 26);
+      ctx.fillStyle = "rgba(20, 21, 23, 0.92)";
+      ctx.beginPath(); ctx.roundRect(tx, ty, w, 20, 4); ctx.fill();
+      ctx.strokeStyle = tone === "block" ? "#ec6a5c" : tone === "allow" ? "#3fb8a9" : "#5a5d63";
+      ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = "#f2f1ee"; ctx.fillText(text, tx + 6, ty + 14);
+    };
+    const dot = (x: number, y: number, r: number, fill: string) => {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill; ctx.strokeStyle = "rgba(20, 21, 23, 0.85)"; ctx.lineWidth = 1.25;
+      ctx.fill(); ctx.stroke();
+    };
+
+    // Positions (arc length) where the journey dot pauses: the source, each stage it passed, the end.
+    const journeyStops = (key: string, j: Journey) => {
+      const Lc = layoutRef.current, c = cum(key), pts = Lc.routes.get(key)!.pts;
+      const stops = [0];
+      for (const st of j.stages) {
+        const col = STAGE_COL[st.stage] ?? 0;
+        const x = Lc.colX[col];
+        let i = 1;
+        while (i < pts.length && !(pts[i][0] >= x && pts[i][0] > Lc.fx)) i++;
+        stops.push(Math.max(stops[stops.length - 1], c[Math.min(i, c.length - 1)]));
+        if (st.verdict) break;
+      }
+      stops.push(c[c.length - 1]);
+      return stops;
+    };
 
     const frame = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
+      const o = opts.current;
+      const dt = Math.min(0.05, (now - last) / 1000) * o.speed;
       last = now;
       const Lc = layoutRef.current;
-      if (Lc !== lastLayout) {                 // new geometry: re-attach every dot to its packet's new route
+      if (Lc !== lastLayout) {
         lengths.clear();
         lastLayout = Lc;
         for (let i = dots.length - 1; i >= 0; i--) {
           const key = Lc.routeKey(dots[i].f);
           if (key) dots[i].key = key; else dots.splice(i, 1);
         }
+        J.key = "";
       }
       const dpr = window.devicePixelRatio || 1;
       if (cv.width !== Math.round(Lc.width * dpr) || cv.height !== Math.round(Lc.height * dpr)) {
@@ -99,54 +163,94 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, Lc.width, Lc.height);
+
+      const j = o.journey;
+      if (j) {
+        // ---- one packet, slowly, stage by stage (other traffic paused) ----
+        const p = j.packet;
+        const f: RouteFlow = { src: p.src ?? "", service: p.service, stage: p.stage, verdict: p.verdict,
+          path: p.stage === "conntrack" && p.verdict === "ACCEPT" ? "fast" : "rules" };
+        if (J.nonce !== j.nonce) Object.assign(J, { nonce: j.nonce, advance: j.advance, target: 1, s: 0, hold: 0.6, done: false, reportedDone: false, lastStep: -1 });
+        const key = p.src ? Lc.routeKey(f) : null;
+        if (!key) {
+          if (J.lastStep !== -2) { J.lastStep = -2; o.onJourneyStep?.(0, true, false); }
+        } else {
+          J.key = key;
+          const stops = journeyStops(key, j);
+          if (J.advance !== j.advance) { J.advance = j.advance; J.hold = 0; if (J.s < stops[J.target]) J.s = stops[J.target]; }
+          if (j.playing && !J.done) {
+            if (J.hold > 0) J.hold -= dt;
+            else if (J.s < stops[J.target]) J.s = Math.min(stops[J.target], J.s + 150 * dt);
+            else if (J.target < stops.length - 1) { J.target++; J.hold = J.target === 1 ? 0 : 1.6; }
+            else J.done = true;
+          }
+          // which stage are we at? (step 0 = on its way in; step k = stage k of the explanation)
+          const reached = stops.filter((st, i) => i > 0 && i < stops.length - 1 && J.s >= st - 0.5).length;
+          const step = J.done ? stops.length - 2 : reached;
+          if (step !== J.lastStep || (J.done && !J.reportedDone)) {
+            o.onJourneyStep?.(step, J.done, true);
+            J.lastStep = step;
+            if (J.done) J.reportedDone = true;
+          }
+          const [x, y] = at(key, J.s);
+          const route = Lc.routes.get(key)!;
+          const decided = x >= route.decideAt - 1 || (route.verdict === "DROP" && J.done);
+          dot(x, y, 6, !decided ? "#f2f1ee" : route.verdict === "ACCEPT" ? "#7fe0d3" : "#ff8f82");
+          ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2);
+          ctx.strokeStyle = decided ? (route.verdict === "ACCEPT" ? "#3fb8a9" : "#ec6a5c") : "#f2f1ee"; ctx.lineWidth = 1.5; ctx.stroke();
+          const cur = reached > 0 ? j.stages[Math.min(reached, j.stages.length) - 1] : null;
+          const text = !cur ? "on its way in" : cur.verdict ? (cur.verdict === "ACCEPT" ? `allowed at ${STAGE_NAME[cur.stage]}` : `BLOCKED at ${STAGE_NAME[cur.stage]}`) : `${STAGE_NAME[cur.stage]}: passed`;
+          tag(x, y, `#${p.id} ${text}`, cur?.verdict === "DROP" ? "block" : cur?.verdict === "ACCEPT" ? "allow" : "plain");
+        }
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+
+      let tags = 0;
       for (let i = dots.length - 1; i >= 0; i--) {
         const d = dots[i];
         const route = Lc.routes.get(d.key);
         if (!route) { dots.splice(i, 1); continue; }
         const c = cum(d.key);
         const total = c[c.length - 1] || 1;
-        d.t += (SPEED * dt) / total;
-        const fade = route.verdict === "DROP" ? 18 / total : 0;   // held packets settle into their bin, then fade
-        if (d.t >= 1 + fade) { dots.splice(i, 1); continue; }
-        if (d.t < 0) continue;                                     // staggered start
-        const s = Math.min(d.t, 1) * total;
-        let j = 1;
-        while (j < c.length - 1 && c[j] < s) j++;
-        const seg = c[j] - c[j - 1] || 1, f = (s - c[j - 1]) / seg;
-        const p0 = route.pts[j - 1], p1 = route.pts[j];
-        const x = p0[0] + (p1[0] - p0[0]) * f, y = p0[1] + (p1[1] - p0[1]) * f;
+        if (d.t < 1) d.t += (SPEED * dt) / total;
+        else {                                                      // arrived: blocked packets linger in their bin
+          d.hold = (d.hold ?? (route.verdict === "DROP" ? (d.label ? 1.6 : 0.3) : 0)) - dt;
+          if (d.hold <= 0) { dots.splice(i, 1); continue; }
+        }
+        if (d.t < 0) continue;
+        const [x, y] = at(d.key, Math.min(d.t, 1) * total);
         const decided = x >= route.decideAt - 1 || (route.verdict === "DROP" && y > Lc.ft + 4 && x >= route.decideAt - 14 && d.t > 0.6);
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        // Pale fill + dark outline: readable on the grey frame AND on the teal / hatched streams.
-        ctx.fillStyle = !decided ? "#f2f1ee" : route.verdict === "ACCEPT" ? "#d4fbf4" : "#ffd8d2";
-        ctx.strokeStyle = "rgba(20, 21, 23, 0.85)";
-        ctx.lineWidth = 1.25;
-        ctx.globalAlpha = d.t > 1 ? Math.max(0, 1 - (d.t - 1) / fade) : 1;
-        ctx.fill();
-        ctx.stroke();
+        ctx.globalAlpha = d.t >= 1 && d.hold != null ? Math.min(1, d.hold / 0.3) : 1;
+        dot(x, y, d.label ? 4 : 3, !decided ? "#f2f1ee" : route.verdict === "ACCEPT" ? "#d4fbf4" : "#ffd8d2");
+        if (d.label && tags < 4 && (decided || o.onlyBlocked)) { tag(x, y, d.label, "block"); tags++; }
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
-      raf = dots.length ? requestAnimationFrame(frame) : 0;
+      raf = dots.length || o.journey ? requestAnimationFrame(frame) : 0;
     };
 
     const off = onPackets((pkts: PacketRec[]) => {
-      if (document.hidden) return;
+      const o = opts.current;
+      if (document.hidden || o.journey) return;
       const Lc = layoutRef.current;
       const sourceIps = new Set(Lc.sources.filter((s) => s.id !== OTHERS).map((s) => s.id));
-      const usable = pkts.filter((p) => p.src && p.dir);
-      const step = Math.max(1, Math.ceil(usable.length / DOTS_PER_BATCH));
+      const usable = pkts.filter((p) => p.src && p.dir && (!o.onlyBlocked || p.verdict === "DROP"));
+      // at slow playback fewer dots are spawned, so each one can be followed
+      const perBatch = Math.max(1, Math.round(DOTS_PER_BATCH * Math.min(1, o.speed)));
+      const step = Math.max(1, Math.ceil(usable.length / perBatch));
       for (let i = 0; i < usable.length && dots.length < MAX_DOTS; i += step) {
         const p = usable[i];
         const f: RouteFlow = { src: p.src!, service: p.service, stage: p.stage, verdict: p.verdict,
           path: p.stage === "conntrack" && p.verdict === "ACCEPT" ? "fast" : "rules" };
         if (!matches(selRef.current, { ...f, group: "external", dir: p.dir!, count: 1, bytes: 0 }, sourceIps)) continue;
         const key = Lc.routeKey(f);
-        if (key) dots.push({ f, key, t: -Math.random() * 0.06 });
+        if (key) dots.push({ f, key, t: -Math.random() * 0.06, label: p.verdict === "DROP" ? shortReason(p) : undefined });
       }
       if (!raf && dots.length) { last = performance.now(); raf = requestAnimationFrame(frame); }
     });
-    return () => { off(); cancelAnimationFrame(raf); ctx.clearRect(0, 0, cv.width, cv.height); };
+    // keep the journey animating even when no traffic arrives
+    const kick = setInterval(() => { if (!raf && opts.current.journey) { last = performance.now(); raf = requestAnimationFrame(frame); } }, 200);
+    return () => { off(); clearInterval(kick); cancelAnimationFrame(raf); ctx.clearRect(0, 0, cv.width, cv.height); };
   }, [animate, reduced]);
 
   // ---------------------------------------------------------- rendering

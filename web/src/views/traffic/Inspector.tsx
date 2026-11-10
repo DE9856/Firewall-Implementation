@@ -48,6 +48,7 @@ function Detail({ d, hot, setHot }: { d: PacketDetail; hot: HeaderField | null; 
         <p className="muted mono small">{clock(p.t, true)} · {p.dir === "in" ? "inbound to this host" : p.dir === "out" ? "outbound from this host" : "direction unknown"}{p.state ? ` · connection ${p.state}` : ""}</p>
         <p className="mono addr">{endpoint(p.src, p.sport)} <span className="faint">→</span> {endpoint(p.dst, p.dport)}</p>
         <div className="insp-actions">
+          {p.src && <a className="btn small" href={href("overview", { journey: p.id })}>Watch its journey</a>}
           {p.rule != null && <a className="btn small" href={href("rules", { rule: p.rule })}>Open rule {p.rule}</a>}
           {p.src && <a className="btn small ghost" href={href("rules", { test: 1, src: p.src, dst: p.dst ?? "", sport: p.sport ?? "", dport: p.dport ?? "", proto: p.proto, flags: p.flags ?? "", dir: p.dir ?? "" })}>Test variations</a>}
         </div>

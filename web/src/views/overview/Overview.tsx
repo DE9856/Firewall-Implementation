@@ -6,7 +6,9 @@ import { EventRow } from "../events/EventRow";
 import { fmt, STAGE_EXPLAIN, STAGE_IN_TEXT } from "../../lib/format";
 import { setPref, usePref } from "../../lib/prefs";
 import { go, href, setParams, useRoute } from "../../lib/router";
-import { FlowMap } from "./FlowMap";
+import { FlowMap, type Journey } from "./FlowMap";
+import { buildStages, JourneyPanel } from "./JourneyPanel";
+import type { PacketDetail, PacketRec } from "../../api/types";
 import { COLUMNS, OTHERS, type Selection } from "./flowLayout";
 import { SelectionPanel } from "./SelectionPanel";
 import "./overview.css";
@@ -71,6 +73,37 @@ export function Overview() {
   const setSelection = (s: Selection) => setParams({ sel: s ? (s.type === "frame" ? "frame" : `${s.type}:${s.id}`) : "" });
   const animate = usePref("animate");
   const intro = usePref("intro");
+  const speed = usePref("speed");
+  const onlyBlocked = usePref("onlyBlocked");
+  const heldRing = useStore((s) => s.held);
+  const recentPackets = useStore((s) => s.packets);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [jDetail, setJDetail] = useState<PacketDetail | null>(null);
+  const [jStep, setJStep] = useState({ step: 0, done: false, onMap: true });
+  const [jError, setJError] = useState<string | null>(null);
+  const journeyId = Number(params.get("journey")) || null;
+
+  // A journey is addressable: #/overview?journey=<packet id> (the inspector links here).
+  useEffect(() => {
+    if (!journeyId) { setJourney(null); setJDetail(null); return; }
+    let alive = true;
+    setJError(null);
+    api.packet(journeyId).then((d: PacketDetail) => {
+      if (!alive) return;
+      setJDetail(d);
+      setJStep({ step: 0, done: false, onMap: true });
+      setJourney({ packet: d.packet, stages: buildStages(d.packet, d.explain), playing: true, nonce: Date.now(), advance: 0 });
+    }).catch((e: Error) => alive && setJError(e.message));
+    return () => { alive = false; };
+  }, [journeyId]);
+
+  const watchBlocked = () => {
+    const pool: PacketRec[] = [...heldRing, ...recentPackets.filter((p) => p.verdict === "DROP")];
+    const pick = pool.filter((p) => p.src && p.stage !== "parse").sort((a, b) => b.id - a.id)
+      .find((p) => p.stage === "rule" || p.stage === "ids") ?? pool.filter((p) => p.src).sort((a, b) => b.id - a.id)[0];
+    if (pick) setParams({ journey: pick.id, sel: "" });
+    else setJError("No blocked packet has arrived yet. Try again in a few seconds.");
+  };
   const source = useStore((s) => s.source);
   const { flows, error } = useWindowFlows(win);
   const height = useMapHeight();
@@ -111,9 +144,27 @@ export function Overview() {
               </button>
             </div>
           </div>
+          <div className="playbar" role="toolbar" aria-label="Animation controls">
+            <button className="btn small" onClick={watchBlocked} disabled={!stats}>Watch a blocked packet</button>
+            <div className="seg" role="group" aria-label="Animation speed">
+              <span className="seg-label">Speed</span>
+              {[[1, "Normal"], [0.5, "½×"], [0.25, "¼×"], [0.1, "⅒×"]].map(([v, l]) => (
+                <button key={l} aria-pressed={speed === v} onClick={() => setPref("speed", v as number)}>{l}</button>
+              ))}
+            </div>
+            <div className="seg" role="group" aria-label="Which packets to animate">
+              <span className="seg-label">Show</span>
+              <button aria-pressed={!onlyBlocked} onClick={() => setPref("onlyBlocked", false)}>All packets</button>
+              <button aria-pressed={onlyBlocked} onClick={() => setPref("onlyBlocked", true)}>Blocked only</button>
+            </div>
+            <span className="faint small playbar-note">Slows the animation only; traffic is still decided in real time.</span>
+          </div>
+          {jError && !journey && <div className="error-box" role="status">{jError}</div>}
           {error && <div className="error-box">Couldn't load the 5-minute history ({error}). Showing the last minute. <button className="link" onClick={() => setWin(60)}>Switch to 1 min</button></div>}
           {!stats && conn !== "offline" ? <div className="map-loading" style={{ height }} aria-busy="true" /> :
-            <FlowMap flows={flows} selection={selection} onSelect={setSelection} animate={animate && conn === "live"} height={height}
+            <FlowMap flows={flows} selection={journey ? null : selection} onSelect={setSelection} animate={(animate && conn === "live") || !!journey} height={height}
+              speed={speed} onlyBlocked={onlyBlocked} journey={journey}
+              onJourneyStep={(step, done, onMap) => setJStep({ step, done, onMap })}
               parseHeld={series.filter((p) => p.t >= lastUpdate - win).reduce((a, p) => a + (p["stage:parse"] ?? 0), 0)} />}
           <footer className="map-legend">
             <span><i className="sw transit" />Not yet decided</span>
@@ -126,7 +177,14 @@ export function Overview() {
         </section>
 
         <aside className="panel side-panel">
-          {selection ? (
+          {journey && jDetail ? (
+            <JourneyPanel detail={jDetail} journey={journey} step={jStep} speed={speed}
+              onPlayPause={() => setJourney({ ...journey, playing: !journey.playing })}
+              onNext={() => setJourney({ ...journey, advance: journey.advance + 1 })}
+              onReplay={() => { setJStep({ step: 0, done: false, onMap: true }); setJourney({ ...journey, playing: true, nonce: Date.now() }); }}
+              onAnother={watchBlocked}
+              onClose={() => setParams({ journey: "" })} />
+          ) : selection ? (
             <SelectionPanel selection={selection} flows={flows} win={win} onClear={() => setSelection(null)} />
           ) : (
             <>
