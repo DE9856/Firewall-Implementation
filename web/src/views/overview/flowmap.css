@@ -55,3 +55,4 @@
 .flowmap .note { paint-order: stroke; stroke: var(--raised); stroke-width: 4px; stroke-linejoin: round; }
 @media (max-width: 760px) { .flowmap { overflow-x: auto; overflow-y: hidden; } }
 .flowmap .banned { fill: var(--warn-ink); }
+.flowmap .regions text { fill: var(--muted); font-size: 12px; font-weight: 500; }

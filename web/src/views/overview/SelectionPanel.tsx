@@ -55,7 +55,7 @@ export function SelectionPanel({ selection, flows, win, onClear }: {
         }
         const col = COLUMNS.find((c) => c.id === selection.id)!;
         const scoped = flows.filter((f) => col.stages.includes(f.stage) && f.verdict === "DROP");
-        return { title: `${col.label} stage`, subtitle: `Packets held at ${col.stages.map((s) => STAGE_IN_TEXT[s]).join(" and ")}`,
+        return { title: `${col.label} stage`, subtitle: `Packets blocked at ${col.stages.map((s) => STAGE_IN_TEXT[s]).join(" and ")}`,
           scoped, explain: col.stages.map((s) => STAGE_EXPLAIN[s]).join(" "),
           trafficLink: href("traffic", { stage: col.stages[0], verdict: "DROP" }), eventsLink: null };
       }
@@ -92,8 +92,8 @@ export function SelectionPanel({ selection, flows, win, onClear }: {
       </div>
       <dl className="sel-figures">
         <div><dt>Packets, {span}</dt><dd className="mono">{fmt(total)}</dd></div>
-        <div><dt>Forwarded</dt><dd className="mono allow">{fmt(total - held)}</dd></div>
-        <div><dt>Held</dt><dd className="mono block">{fmt(held)}</dd></div>
+        <div><dt>Allowed</dt><dd className="mono allow">{fmt(total - held)}</dd></div>
+        <div><dt>Blocked</dt><dd className="mono block">{fmt(held)}</dd></div>
         <div><dt>Volume</dt><dd className="mono">{bytes(scoped.reduce((a, f) => a + f.bytes, 0))}</dd></div>
       </dl>
       {total > 0 && (
@@ -119,7 +119,7 @@ export function SelectionPanel({ selection, flows, win, onClear }: {
               <button onClick={() => go("traffic", { packet: p.id })}>
                 <span className="mono faint">{clock(p.t)}</span>
                 <span className="mono">{endpoint(p.src, p.sport)} → {endpoint(p.dst, p.dport)}</span>
-                <span className={`verdict ${p.verdict === "ACCEPT" ? "allow" : "block"}`}>{p.verdict === "ACCEPT" ? "Allowed" : "Held"}</span>
+                <span className={`verdict ${p.verdict === "ACCEPT" ? "allow" : "block"}`}>{p.verdict === "ACCEPT" ? "Allowed" : "Blocked"}</span>
                 <span className="faint">{decidedBy(p)}</span>
               </button>
             </li>

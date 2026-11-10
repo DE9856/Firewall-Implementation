@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { onPackets, useStore } from "../../api/store";
 import type { FlowRec, PacketRec } from "../../api/types";
-import { bytes, fmt } from "../../lib/format";
+import { bytes, fmt, STAGE_EXPLAIN } from "../../lib/format";
+
+/** One plain phrase per stage, for hover tooltips on the stage names. */
+const STAGE_PLAIN: Record<string, string> = {
+  parse: "Parse: read the packet's label", lists: "Lists: always-trusted and always-blocked networks",
+  bans: "Bans: attackers banned in the last minute", ids: "IDS: attack detectors",
+  state: "State: replies to conversations already going on", rules: "Rules: your firewall rules, top to bottom",
+  policy: "Policy: what happens to everything else",
+};
 import { COLUMNS, layout, matches, OTHERS, type Layout, type Ribbon, type Selection } from "./flowLayout";
 import "./flowmap.css";
 
@@ -9,7 +17,11 @@ const MAX_DOTS = 160;
 const DOTS_PER_BATCH = 24;      // the server batches every 250 ms: at most ~96 dots per second
 const SPEED = 340;              // px per second
 
-interface Dot { route: string; s: number; born: number; }
+type RouteFlow = { src: string; service: string; stage: PacketRec["stage"]; verdict: "ACCEPT" | "DROP"; path: "fast" | "rules" };
+// A dot remembers its packet (not a route object) and how far along its journey it is, as a
+// fraction. The layout is rebuilt about once a second as totals change; the dot then
+// continues on the new route from the same fraction instead of disappearing.
+interface Dot { f: RouteFlow; key: string; t: number; }
 
 function usePrefersReducedMotion() {
   const [reduced, set] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -56,6 +68,7 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
     const dots: Dot[] = [];
     const lengths = new Map<string, number[]>();
     let raf = 0, last = performance.now();
+    let lastLayout = layoutRef.current;
 
     const cum = (key: string) => {
       let c = lengths.get(key);
@@ -67,13 +80,19 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
       }
       return c;
     };
-    let lastLayout = layoutRef.current;
 
     const frame = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const Lc = layoutRef.current;
-      if (Lc !== lastLayout) { lengths.clear(); lastLayout = Lc; }
+      if (Lc !== lastLayout) {                 // new geometry: re-attach every dot to its packet's new route
+        lengths.clear();
+        lastLayout = Lc;
+        for (let i = dots.length - 1; i >= 0; i--) {
+          const key = Lc.routeKey(dots[i].f);
+          if (key) dots[i].key = key; else dots.splice(i, 1);
+        }
+      }
       const dpr = window.devicePixelRatio || 1;
       if (cv.width !== Math.round(Lc.width * dpr) || cv.height !== Math.round(Lc.height * dpr)) {
         cv.width = Math.round(Lc.width * dpr); cv.height = Math.round(Lc.height * dpr);
@@ -82,24 +101,30 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
       ctx.clearRect(0, 0, Lc.width, Lc.height);
       for (let i = dots.length - 1; i >= 0; i--) {
         const d = dots[i];
-        const route = Lc.routes.get(d.route);
+        const route = Lc.routes.get(d.key);
         if (!route) { dots.splice(i, 1); continue; }
-        const c = cum(d.route);
-        const totalLen = c[c.length - 1];
-        d.s += SPEED * dt;
-        if (d.s >= totalLen + (route.verdict === "DROP" ? 18 : 0)) { dots.splice(i, 1); continue; }
-        const s = Math.min(d.s, totalLen);
+        const c = cum(d.key);
+        const total = c[c.length - 1] || 1;
+        d.t += (SPEED * dt) / total;
+        const fade = route.verdict === "DROP" ? 18 / total : 0;   // held packets settle into their bin, then fade
+        if (d.t >= 1 + fade) { dots.splice(i, 1); continue; }
+        if (d.t < 0) continue;                                     // staggered start
+        const s = Math.min(d.t, 1) * total;
         let j = 1;
         while (j < c.length - 1 && c[j] < s) j++;
-        const seg = c[j] - c[j - 1] || 1, t = (s - c[j - 1]) / seg;
+        const seg = c[j] - c[j - 1] || 1, f = (s - c[j - 1]) / seg;
         const p0 = route.pts[j - 1], p1 = route.pts[j];
-        const x = p0[0] + (p1[0] - p0[0]) * t, y = p0[1] + (p1[1] - p0[1]) * t;
-        const decided = x >= route.decideAt - 1 || (route.verdict === "DROP" && y > Lc.ft + 4 && x >= route.decideAt - 14 && s > c[c.length - 1] * 0.6);
+        const x = p0[0] + (p1[0] - p0[0]) * f, y = p0[1] + (p1[1] - p0[1]) * f;
+        const decided = x >= route.decideAt - 1 || (route.verdict === "DROP" && y > Lc.ft + 4 && x >= route.decideAt - 14 && d.t > 0.6);
         ctx.beginPath();
-        ctx.arc(x, y, 2.6, 0, Math.PI * 2);
-        ctx.fillStyle = decided ? (route.verdict === "ACCEPT" ? "#7fe0d3" : "#ff9a8e") : "#f2f1ee";
-        ctx.globalAlpha = d.s > totalLen ? Math.max(0, 1 - (d.s - totalLen) / 18) : 0.95;
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        // Pale fill + dark outline: readable on the grey frame AND on the teal / hatched streams.
+        ctx.fillStyle = !decided ? "#f2f1ee" : route.verdict === "ACCEPT" ? "#d4fbf4" : "#ffd8d2";
+        ctx.strokeStyle = "rgba(20, 21, 23, 0.85)";
+        ctx.lineWidth = 1.25;
+        ctx.globalAlpha = d.t > 1 ? Math.max(0, 1 - (d.t - 1) / fade) : 1;
         ctx.fill();
+        ctx.stroke();
       }
       ctx.globalAlpha = 1;
       raf = dots.length ? requestAnimationFrame(frame) : 0;
@@ -113,11 +138,11 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
       const step = Math.max(1, Math.ceil(usable.length / DOTS_PER_BATCH));
       for (let i = 0; i < usable.length && dots.length < MAX_DOTS; i += step) {
         const p = usable[i];
-        const f = { src: p.src!, service: p.service, stage: p.stage, verdict: p.verdict,
-          path: (p.stage === "conntrack" && p.verdict === "ACCEPT" ? "fast" : "rules") as "fast" | "rules" };
+        const f: RouteFlow = { src: p.src!, service: p.service, stage: p.stage, verdict: p.verdict,
+          path: p.stage === "conntrack" && p.verdict === "ACCEPT" ? "fast" : "rules" };
         if (!matches(selRef.current, { ...f, group: "external", dir: p.dir!, count: 1, bytes: 0 }, sourceIps)) continue;
         const key = Lc.routeKey(f);
-        if (key) dots.push({ route: key, s: -Math.random() * 60, born: performance.now() });
+        if (key) dots.push({ f, key, t: -Math.random() * 0.06 });
       }
       if (!raf && dots.length) { last = performance.now(); raf = requestAnimationFrame(frame); }
     });
@@ -141,6 +166,11 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
           </pattern>
         </defs>
 
+        <g className="regions" aria-hidden="true">
+          <text x={L.srcX + L.nodeW} y={16} textAnchor="end">Computers sending traffic</text>
+          <text x={L.fx + L.fw / 2} y={16} textAnchor="middle">PyWall checks each packet, stage by stage</text>
+          <text x={L.svcX} y={16}>Where allowed traffic goes</text>
+        </g>
         <g className="idle">{L.idle.map((d, i) => <path key={i} d={d} />)}</g>
 
         <g className="frame" onClick={() => toggle({ type: "frame" })}>
@@ -150,7 +180,8 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
         {COLUMNS.map((c, i) => (
           <text key={c.id} x={L.colX[i]} y={L.ft - 12} textAnchor="middle" className={`col-head${isSel({ type: "column", id: c.id }) ? " on" : ""}`}
             role="button" tabIndex={0} aria-label={`${c.label} stage`}
-            onClick={() => toggle({ type: "column", id: c.id })} onKeyDown={key(() => toggle({ type: "column", id: c.id }))}>{c.label}</text>
+            onClick={() => toggle({ type: "column", id: c.id })} onKeyDown={key(() => toggle({ type: "column", id: c.id }))}>
+            <title>{`${STAGE_PLAIN[c.id]}. ${STAGE_EXPLAIN[c.stages[0]]}`}</title>{c.label}</text>
         ))}
 
         <g className="ribbons">
@@ -170,7 +201,7 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
         <g className="bins">
           {L.bins.map((b) => (
             <g key={b.col} className={`bin${isSel({ type: "column", id: COLUMNS[b.col].id }) ? " on" : ""}`} role="button" tabIndex={0}
-              aria-label={`${b.count} packets held at ${COLUMNS[b.col].label}`}
+              aria-label={`${b.count} packets blocked at ${COLUMNS[b.col].label}`}
               onClick={() => toggle({ type: "column", id: COLUMNS[b.col].id })} onKeyDown={key(() => toggle({ type: "column", id: COLUMNS[b.col].id }))}>
               <rect x={b.x - L.colW / 2 + 4} y={L.binTop} width={L.colW - 8} height={40} className="hit" />
               {b.level > 0 && <rect x={b.x - L.colW / 2 + 6} y={L.binTop + 38 - b.level} width={L.colW - 12} height={b.level} fill="url(#held)" />}
@@ -178,7 +209,7 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
               <text x={b.x} y={L.binTop + 58} textAnchor="middle" className={`bin-count${b.count ? " held" : ""}`}>{fmt(b.count)}</text>
             </g>
           ))}
-          <text x={L.fx} y={L.binTop + 78} className="note">Held, in the bin of the stage that stopped them</text>
+          <text x={L.fx} y={L.binTop + 78} className="note">Blocked, in the bin of the stage that stopped them</text>
         </g>
 
         <g className="nodes">
@@ -187,14 +218,16 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
             const dim = sel && sel.type === "source" && !isSel(ref);
             return (
               <g key={s.id} className={`node src${isSel(ref) ? " on" : ""}${dim ? " dim" : ""}`} role="button" tabIndex={0}
-                aria-label={`Source ${s.label}: ${s.count} packets, ${s.dropped} held`}
+                aria-label={`Source ${s.label}: ${s.count} packets, ${s.dropped} blocked`}
                 onClick={() => toggle(ref)} onKeyDown={key(() => toggle(ref))}>
                 <rect x={L.srcX} y={s.y0} width={L.nodeW} height={s.y1 - s.y0} rx={1.5} />
                 <rect x={8} y={(s.y0 + s.y1) / 2 - 18} width={L.srcX - 8} height={36} className="hit" />
-                <text x={L.srcX - 12} y={(s.y0 + s.y1) / 2 - 3} textAnchor="end" className={s.id === OTHERS ? "lbl" : "lbl mono"}>{s.label}</text>
+                <text x={L.srcX - 12} y={(s.y0 + s.y1) / 2 - 3} textAnchor="end" className={s.id === OTHERS ? "lbl" : "lbl mono"}>{s.label}{(() => {
+                  const b = bans.find((x) => x.src === s.id);
+                  return b ? <tspan className="banned"> banned<title>{`Banned by the IDS: ${b.reason}`}</title></tspan> : null;
+                })()}</text>
                 <text x={L.srcX - 12} y={(s.y0 + s.y1) / 2 + 13} textAnchor="end" className="sub">
-                  {(() => { const b = bans.find((x) => x.src === s.id); return b ? <tspan className="banned">Banned: {b.reason.split(" (")[0]} · </tspan> : null; })()}
-                  {s.sub} · {fmt(s.count)}{s.dropped ? <tspan className="held"> · {fmt(s.dropped)} held</tspan> : null}
+                  {s.sub} · {fmt(s.count)}{s.dropped ? <tspan className="held"> · {fmt(s.dropped)} blocked</tspan> : null}
                 </text>
               </g>
             );
@@ -205,12 +238,12 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
             const [name, port] = s.label.split(" :");
             return (
               <g key={s.id} className={`node svc${isSel(ref) ? " on" : ""}${dim ? " dim" : ""}`} role="button" tabIndex={0}
-                aria-label={`Destination ${s.label}: ${s.count} packets forwarded`}
+                aria-label={`Destination ${s.label}: ${s.count} packets allowed`}
                 onClick={() => toggle(ref)} onKeyDown={key(() => toggle(ref))}>
                 <rect x={L.svcX} y={s.y0} width={L.nodeW} height={s.y1 - s.y0} rx={1.5} />
                 <rect x={L.svcX} y={(s.y0 + s.y1) / 2 - 18} width={L.width - L.svcX} height={36} className="hit" />
                 <text x={L.svcX + 16} y={(s.y0 + s.y1) / 2 - 3} className="lbl">{name}{port && <tspan className="mono port"> :{port}</tspan>}</text>
-                <text x={L.svcX + 16} y={(s.y0 + s.y1) / 2 + 13} className="sub">{fmt(s.count)} forwarded</text>
+                <text x={L.svcX + 16} y={(s.y0 + s.y1) / 2 + 13} className="sub">{fmt(s.count)} allowed</text>
               </g>
             );
           })}

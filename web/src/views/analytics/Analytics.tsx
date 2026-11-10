@@ -46,7 +46,7 @@ export function Analytics() {
   return (
     <>
       <PageHeader title="Analytics"
-        finding={data ? (total ? `${fmt(total)} packets in the last ${range.label}: ${((held / total) * 100).toFixed(1)}% held, ${bytes(flows.reduce((a, f) => a + f.bytes, 0))} in total.` : `No packets in the last ${range.label}.`) : "Loading traffic history…"}>
+        finding={data ? (total ? `${fmt(total)} packets in the last ${range.label}: ${((held / total) * 100).toFixed(1)}% blocked, ${bytes(flows.reduce((a, f) => a + f.bytes, 0))} in total.` : `No packets in the last ${range.label}.`) : "Loading traffic history…"}>
         <div className="seg" role="group" aria-label="Time range">
           {RANGES.map((r) => <button key={r.s} aria-pressed={r.s === range.s} onClick={() => setParams({ range: r.s })}>{r.label}</button>)}
         </div>
@@ -56,7 +56,7 @@ export function Analytics() {
       <div className="an-row first">
         <section className="panel">
           <div className="panel-head"><h2>Packets per {range.bucket} seconds</h2>
-            <div className="aside"><span className="key"><i className="k allow" />Allowed, above the line</span><span className="key"><i className="k block" />Held, below</span></div></div>
+            <div className="aside"><span className="key"><i className="k allow" />Allowed, above the line</span><span className="key"><i className="k block" />Blocked, below</span></div></div>
           {data ? <Volume series={data.series} window={range.s} bucket={range.bucket} /> : <div className="chart-loading" />}
         </section>
         <div className="an-stack">
@@ -78,7 +78,7 @@ export function Analytics() {
           rows={group(flows.filter((f) => f.rule != null), (f) => String(f.rule))}
           label={(k) => { const r = rules.find((x) => String(x.id) === k); return r ? `#${k} ${r.spec.name ?? ""}` : `#${k} (deleted)`; }}
           link={(k) => href("rules", { rule: k })} />
-        <Ranked title="Where packets were held" heldOnly
+        <Ranked title="Where packets were blocked" heldOnly
           rows={group(flows.filter((f) => f.verdict === "DROP"), (f) => f.stage)}
           label={(k) => STAGE_LABEL[k as keyof typeof STAGE_LABEL] ?? k}
           link={(k) => href("traffic", { stage: k, verdict: "DROP" })} />
@@ -121,7 +121,7 @@ function Volume({ series, window, bucket }: { series: SeriesPoint[]; window: num
 
   return (
     <div className="volume" ref={ref}>
-      <svg width={w} height={H} role="img" aria-label="Packets over time, allowed above the zero line and held below it">
+      <svg width={w} height={H} role="img" aria-label="Packets over time, allowed above the zero line and blocked below it">
         {ticks.map((t) => (
           <g key={t}><line x1={padL} x2={w - padR} y1={y(t)} y2={y(t)} className="grid" />
             <text x={padL - 8} y={y(t) + 4} textAnchor="end" className="tick">{fmt(Math.abs(t))}</text></g>
@@ -142,7 +142,7 @@ function Volume({ series, window, bucket }: { series: SeriesPoint[]; window: num
       {hb && (
         <div className="an-tip" style={{ left: Math.min(padL + (hover! + 1) * bw + 8, w - 190) }}>
           <b className="mono">{clock(hb.t)}–{clock(hb.t + bucket)}</b>
-          <span><i className="k allow" />{fmt(hb.a)} allowed</span><span><i className="k block" />{fmt(hb.d)} held</span>
+          <span><i className="k allow" />{fmt(hb.a)} allowed</span><span><i className="k block" />{fmt(hb.d)} blocked</span>
         </div>
       )}
     </div>
@@ -156,11 +156,11 @@ function Split({ rows, total, showBytes }: { rows: [string, { count: number; hel
       {rows.map(([k, v]) => (
         <li key={k}>
           <div className="split-head"><span>{k}</span><span className="mono">{fmt(v.count)}</span><span className="faint mono">{((v.count / total) * 100).toFixed(1)}%</span></div>
-          <div className="split-bar" title={`${fmt(v.count - v.held)} allowed, ${fmt(v.held)} held`}>
+          <div className="split-bar" title={`${fmt(v.count - v.held)} allowed, ${fmt(v.held)} blocked`}>
             <span className="allow" style={{ width: `${((v.count - v.held) / total) * 100}%` }} />
             <span className="block" style={{ width: `${(v.held / total) * 100}%` }} />
           </div>
-          <span className="faint small">{fmt(v.held)} held{showBytes ? ` · ${bytes(v.bytes)}` : ""}</span>
+          <span className="faint small">{fmt(v.held)} blocked{showBytes ? ` · ${bytes(v.bytes)}` : ""}</span>
         </li>
       ))}
     </ul>

@@ -12,7 +12,7 @@ const KINDS: { id: string; label: string; kinds: EventRec["kind"][] }[] = [
   { id: "", label: "All", kinds: [] },
   { id: "ids", label: "IDS and bans", kinds: ["ids", "ban"] },
   { id: "rate", label: "Rate limits", kinds: ["rate"] },
-  { id: "held", label: "Held traffic", kinds: ["invalid", "malformed", "blacklist", "rule"] },
+  { id: "held", label: "Blocked traffic", kinds: ["invalid", "malformed", "blacklist", "rule"] },
   { id: "config", label: "Configuration", kinds: ["config", "system"] },
 ];
 

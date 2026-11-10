@@ -43,7 +43,7 @@ function Detail({ d, hot, setHot }: { d: PacketDetail; hot: HeaderField | null; 
   return (
     <div className="insp">
       <section className="insp-verdict">
-        <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : held ? "block" : "allow"} big`}>{held ? "Held (dropped)" : "Allowed"}</span>
+        <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : held ? "block" : "allow"} big`}>{held ? "Blocked" : "Allowed"}</span>
         <p>{held ? "Dropped" : "Accepted"} at the <b>{STAGE_IN_TEXT[p.stage]}</b>: {p.reason}.</p>
         <p className="muted mono small">{clock(p.t, true)} · {p.dir === "in" ? "inbound to this host" : p.dir === "out" ? "outbound from this host" : "direction unknown"}{p.state ? ` · connection ${p.state}` : ""}</p>
         <p className="mono addr">{endpoint(p.src, p.sport)} <span className="faint">→</span> {endpoint(p.dst, p.dport)}</p>
@@ -57,13 +57,13 @@ function Detail({ d, hot, setHot }: { d: PacketDetail; hot: HeaderField | null; 
         <section>
           <h3>How the pipeline handled it</h3>
           <p className="muted small">{changed
-            ? `Re-checked now, this packet would get ${ex.verdict === "ACCEPT" ? "allowed" : "held"} at the ${STAGE_IN_TEXT[ex.stage]}: rules, bans or connections have changed since it arrived. The verdict above is what happened.`
+            ? `Re-checked now, this packet would get ${ex.verdict === "ACCEPT" ? "allowed" : "blocked"} at the ${STAGE_IN_TEXT[ex.stage]}: rules, bans or connections have changed since it arrived. The verdict above is what happened.`
             : "Each stage in order. The first stage that decides wins; the rest never see the packet."}</p>
           <ol className="trace">
             {ex.stages.map((s) => (
               <li key={s.stage} className={s.verdict ? "decided" : s.outcome}>
                 <span className="t-stage">{STAGE_LABEL[s.stage]}</span>
-                <span className="t-outcome">{s.verdict ? (s.verdict === "ACCEPT" ? "allowed" : "held") : OUTCOME[s.outcome]}</span>
+                <span className="t-outcome">{s.verdict ? (s.verdict === "ACCEPT" ? "allowed" : "blocked") : OUTCOME[s.outcome]}</span>
                 <span className="t-detail" title={STAGE_EXPLAIN[s.stage]}>{s.detail}</span>
               </li>
             ))}

@@ -79,7 +79,7 @@ export function Traffic() {
         <div className="seg" role="group" aria-label="Verdict">
           <button aria-pressed={!f.verdict} onClick={() => setParams({ verdict: "" })}>All</button>
           <button aria-pressed={f.verdict === "ACCEPT"} onClick={() => setParams({ verdict: "ACCEPT" })}>Allowed<span className="count">{fmt(counts.a)}</span></button>
-          <button aria-pressed={f.verdict === "DROP"} onClick={() => setParams({ verdict: "DROP" })}>Held<span className="count">{fmt(counts.d)}</span></button>
+          <button aria-pressed={f.verdict === "DROP"} onClick={() => setParams({ verdict: "DROP" })}>Blocked<span className="count">{fmt(counts.d)}</span></button>
         </div>
         <div className="seg" role="group" aria-label="Protocol">
           {["", "tcp", "udp", "icmp"].map((p) => (
@@ -150,7 +150,7 @@ function PacketTable({ rows, selected, onSelect, empty }: { rows: PacketRec[]; s
                 <span className="mono">{p.proto.toUpperCase()}</span>
                 <span className="num">{p.len}</span>
                 <span className="mono ell muted">{info(p)}{p.service && p.src ? <span className="faint"> · {p.service}</span> : null}</span>
-                <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : p.verdict === "ACCEPT" ? "allow" : "block"}`}>{p.verdict === "ACCEPT" ? "Allowed" : "Held"}</span>
+                <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : p.verdict === "ACCEPT" ? "allow" : "block"}`}>{p.verdict === "ACCEPT" ? "Allowed" : "Blocked"}</span>
                 <span className="ell muted">{decidedBy(p)}</span>
               </button>
             ))}

@@ -48,7 +48,7 @@ export function RuleDetail({ rule, onEdit, onClose, readOnly = false }: { rule: 
       <p className="ru-pad muted small">A packet matches only if every condition holds. Conditions not listed accept any value.</p>
       {(s.rate_limit || s.log) && (
         <dl className="cond-list">
-          {s.rate_limit && <div><dt>Rate limit</dt><dd className="mono">{s.rate_limit} per source; extra packets are held</dd></div>}
+          {s.rate_limit && <div><dt>Rate limit</dt><dd className="mono">{s.rate_limit} per source; extra packets are blocked</dd></div>}
           {s.log && <div><dt>Logging</dt><dd>Every match is written to the log</dd></div>}
         </dl>
       )}
@@ -58,7 +58,7 @@ export function RuleDetail({ rule, onEdit, onClose, readOnly = false }: { rule: 
           {recent.map((p) => (
             <li key={p.id}><button onClick={() => go("traffic", { packet: p.id })}>
               <span className="mono faint">{clock(p.t)}</span><span className="mono ell">{endpoint(p.src, p.sport)} → {endpoint(p.dst, p.dport)}</span>
-              <span className={`verdict ${p.verdict === "ACCEPT" ? "allow" : p.rateLimited ? "warn" : "block"}`}>{p.rateLimited ? "Rate limited" : p.verdict === "ACCEPT" ? "Allowed" : "Held"}</span>
+              <span className={`verdict ${p.verdict === "ACCEPT" ? "allow" : p.rateLimited ? "warn" : "block"}`}>{p.rateLimited ? "Rate limited" : p.verdict === "ACCEPT" ? "Allowed" : "Blocked"}</span>
             </button></li>
           ))}
         </ul>

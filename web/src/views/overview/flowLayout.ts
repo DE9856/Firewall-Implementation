@@ -194,8 +194,8 @@ export function layout(input: FlowRec[], sel: Selection, width: number, height: 
     idle.push(curve(srcX + nodeW, (s.y0 + s.y1) / 2, fx, bandTop + T / 2));
     intake.set(s.id, iy);
     const ref: Selection = { type: "source", id: s.id };
-    if (a) ribbons.push({ key: `in-a-${s.id}`, d: curve(srcX + nodeW, s.y0 + (a * k) / 2, fx, iy + (a * k) / 2), width: a * k, kind: "allow-dim", count: a, bytes: ab, ref, title: `${s.label}: ${a} forwarded` });
-    if (d) ribbons.push({ key: `in-d-${s.id}`, d: curve(srcX + nodeW, s.y0 + a * k + (d * k) / 2, fx, iy + a * k + (d * k) / 2), width: d * k, kind: "block-dim", count: d, bytes: db, ref, title: `${s.label}: ${d} held` });
+    if (a) ribbons.push({ key: `in-a-${s.id}`, d: curve(srcX + nodeW, s.y0 + (a * k) / 2, fx, iy + (a * k) / 2), width: a * k, kind: "allow-dim", count: a, bytes: ab, ref, title: `${s.label}: ${a} allowed` });
+    if (d) ribbons.push({ key: `in-d-${s.id}`, d: curve(srcX + nodeW, s.y0 + a * k + (d * k) / 2, fx, iy + a * k + (d * k) / 2), width: d * k, kind: "block-dim", count: d, bytes: db, ref, title: `${s.label}: ${d} blocked` });
     iy += (a + d) * k;
   }
 
@@ -203,7 +203,7 @@ export function layout(input: FlowRec[], sel: Selection, width: number, height: 
   for (const l of layers) {
     const xc = colX[l.col];
     const ref: Selection = l.fast ? { type: "column", id: "fast" } : l.verdict === "DROP" ? { type: "column", id: COLUMNS[l.col].id } : { type: "frame" };
-    const label = l.fast ? "Established connections (fast path)" : l.verdict === "DROP" ? `Held at ${COLUMNS[l.col].label}` : `Forwarded by ${COLUMNS[l.col].label}`;
+    const label = l.fast ? "Established connections (fast path)" : l.verdict === "DROP" ? `Blocked at ${COLUMNS[l.col].label}` : `Allowed by ${COLUMNS[l.col].label}`;
     if (l.verdict === "ACCEPT") {
       ribbons.push({ key: `t-${l.key}`, d: `M${fx},${l.y}H${xc}`, width: l.h, kind: "transit", count: l.count, bytes: l.bytes, ref, title: label });
       ribbons.push({ key: `a-${l.key}`, d: `M${xc},${l.y}H${exitX}`, width: l.h, kind: "allow", count: l.count, bytes: l.bytes, ref, title: label });
@@ -231,7 +231,7 @@ export function layout(input: FlowRec[], sel: Selection, width: number, height: 
     idle.push(curve(exitX, bandTop + 4, svcX, (s.y0 + s.y1) / 2));
     exitAt.set(s.id, ey);
     if (c) ribbons.push({ key: `out-${s.id}`, d: curve(exitX, ey + (c * k) / 2, svcX, s.y0 + (c * k) / 2), width: c * k, kind: "allow", count: c,
-      bytes: sf.reduce((a, f) => a + f.bytes, 0), ref: { type: "service", id: s.id }, title: `${s.label}: ${c} forwarded` });
+      bytes: sf.reduce((a, f) => a + f.bytes, 0), ref: { type: "service", id: s.id }, title: `${s.label}: ${c} allowed` });
     ey += c * k;
   }
 

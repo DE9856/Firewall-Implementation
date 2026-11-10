@@ -2,7 +2,7 @@ import type { EventRec } from "../../api/types";
 import { clock } from "../../lib/format";
 import "./events.css";
 
-export const SEVERITY_LABEL = { critical: "Attack detected", warning: "Warning", notice: "Held traffic", info: "Information" } as const;
+export const SEVERITY_LABEL = { critical: "Attack detected", warning: "Warning", notice: "Blocked traffic", info: "Information" } as const;
 
 export function SevMark({ s }: { s: EventRec["severity"] }) {
   return <i className={`sev ${s}`} aria-label={SEVERITY_LABEL[s]} role="img" />;
