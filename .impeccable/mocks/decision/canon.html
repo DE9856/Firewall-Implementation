@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Category standard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;overflow:hidden;background:#0f1115;color:#e7e9ee;font:14px/1.45 Inter,system-ui,sans-serif;display:grid;grid-template-columns:232px 1fr}
+.nav{background:#13161b;border-right:1px solid #1f232a;padding:20px 14px}.brand{font-weight:600;font-size:16px;margin-bottom:24px}
+.nav a{display:block;padding:8px 10px;border-radius:6px;color:#a3a9b5;margin-bottom:2px}.nav a.on{background:#1f232a;color:#fff}
+.main{padding:24px 32px;display:grid;gap:20px;grid-template-rows:auto auto 300px 1fr}
+h1{font-size:24px;font-weight:600}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.k{background:#1a1d23;border:1px solid #23272f;border-radius:8px;padding:16px}.k span{color:#a3a9b5;font-size:13px}.k b{display:block;font-size:26px;font-weight:600;margin-top:4px}
+.p{background:#1a1d23;border:1px solid #23272f;border-radius:8px;padding:16px}.row2{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px 6px;border-top:1px solid #23272f;text-align:left}th{color:#a3a9b5;font-weight:400;border:0}
+</style></head><body>
+<nav class="nav"><div class="brand">PyWall</div><a class="on">Overview</a><a>Live traffic</a><a>Firewall rules</a><a>Analytics</a><a>Security events</a></nav>
+<main class="main"><h1>Overview</h1>
+ <div class="kpis"><div class="k"><span>Packets</span><b>1,284</b></div><div class="k"><span>Allowed</span><b style="color:#2dd4bf">1,021</b></div><div class="k"><span>Blocked</span><b style="color:#f87171">263</b></div><div class="k"><span>Rate</span><b>42/s</b></div><div class="k"><span>IDS bans</span><b style="color:#fbbf24">2</b></div></div>
+ <div class="row2"><div class="p"><b>Traffic over time</b><svg width="100%" height="230" viewBox="0 0 700 230"><polyline fill="none" stroke="#2dd4bf" stroke-width="2" points="0,160 60,150 120,140 180,150 240,120 300,130 360,100 420,110 480,90 540,95 600,80 700,85"/><polyline fill="none" stroke="#f87171" stroke-width="2" points="0,200 60,198 120,196 180,180 240,170 300,190 360,150 420,200 480,195 540,196 600,198 700,197"/></svg></div>
+ <div class="p"><b>Flow</b><svg width="100%" height="230" viewBox="0 0 330 230"><path d="M10 60 C120 60 120 115 165 115" stroke="#2dd4bf" stroke-width="16" fill="none" opacity=".8"/><path d="M10 170 C120 170 120 120 165 120" stroke="#f87171" stroke-width="10" fill="none" opacity=".8"/><path d="M165 115 C230 115 240 60 320 60" stroke="#2dd4bf" stroke-width="18" fill="none" opacity=".8"/></svg></div></div>
+ <div class="p"><b>Recent alerts</b><table><tr><th>Time</th><th>Type</th><th>Source</th><th>Action</th></tr><tr><td>11:51:44</td><td>SYN flood</td><td>198.51.100.77</td><td>Banned</td></tr><tr><td>11:51:38</td><td>Port scan</td><td>203.0.113.66</td><td>Banned</td></tr><tr><td>11:51:37</td><td>Rate limit</td><td>45.33.32.156</td><td>Dropped</td></tr></table></div>
+</main></body></html>

@@ -1,0 +1,245 @@
+$ ls firewall config tests demo
+config:
+rules.json
+
+demo:
+bad_rules.json       live_demo.py       live_firewall_stdout.txt  make_sample_pcap.py  __pycache__      pywall_live_demo.mp4  sample.pcap
+demo_transcript.txt  live_firewall.log  live_session.json         probe.py             pywall_demo.mp4  record_demo.py
+
+firewall:
+colors.py  conntrack.py  engine.py  ids.py  __init__.py  live.py  packet.py  pcap.py  __pycache__  rules.py  simulator.py
+
+tests:
+__init__.py  __pycache__  test_firewall.py
+
+$ python3 pywall.py check
+default policy: DROP   stateful: True   drop invalid: True   IDS: True
+  #  ACTION DIR  PROTO SRC                DST PORT / TYPE      NAME
+  1  ACCEPT any  any   127.0.0.0/8        any                  allow loopback
+  2  DROP   out  tcp   any                23                   block outbound telnet
+  3  ACCEPT out  any   any                any                  allow all other outbound
+  4  ACCEPT in   tcp   192.168.1.0/24     22                   SSH only from the LAN
+  5  DROP   in   tcp   any                22                   drop SSH from elsewhere
+  6  ACCEPT in   tcp   any                80,443               public web server
+  7  DROP   in   tcp   any                445,3389,135-139     block SMB / RDP / NetBIOS
+  8  ACCEPT in   icmp  any                icmp type 8 (5/1s)   ping, rate limited
+  9  ACCEPT in   icmp  any                icmp type 3          ICMP destination unreachable
+ 10  ACCEPT in   icmp  any                icmp type 11         ICMP time exceeded
+Rule set is valid.
+
+$ python3 pywall.py -c demo/bad_rules.json check
+error: loading demo/bad_rules.json: rule 2 (typo'd rule): invalid port range 99999
+
+$ python3 pywall.py simulate
+
+1. Outbound HTTPS + stateful reply
+  ok   out TCP 192.168.1.10:51000 -> 142.250.183.14:443 [S]           ACCEPT allow all other outbound
+  ok    in TCP 142.250.183.14:443 -> 192.168.1.10:51000 [SA]          ACCEPT established connection
+  ok   out TCP 192.168.1.10:51000 -> 142.250.183.14:443 [A]           ACCEPT established connection
+  ok    in TCP 142.250.183.14:443 -> 192.168.1.10:51000 [AP]          ACCEPT established connection
+  ok   out TCP 192.168.1.10:51000 -> 142.250.183.14:443 [AF]          ACCEPT established connection
+
+2. DNS query and reply
+  ok   out UDP 192.168.1.10:53001 -> 8.8.8.8:53                       ACCEPT allow all other outbound
+  ok    in UDP 8.8.8.8:53 -> 192.168.1.10:53001                       ACCEPT established connection
+
+3. SSH: LAN allowed, internet blocked
+  ok    in TCP 192.168.1.25:40000 -> 192.168.1.10:22 [S]              ACCEPT SSH only from the LAN
+  ok    in TCP 45.33.32.156:40001 -> 192.168.1.10:22 [S]              DROP   drop SSH from elsewhere
+
+4. Public web server on port 80
+  ok    in TCP 45.33.32.156:40002 -> 192.168.1.10:80 [S]              ACCEPT public web server
+
+5. Closed / dangerous ports
+  ok    in TCP 45.33.32.156:40003 -> 192.168.1.10:3389 [S]            DROP   block SMB / RDP / NetBIOS
+  ok    in TCP 45.33.32.156:40004 -> 192.168.1.10:445 [S]             DROP   block SMB / RDP / NetBIOS
+  ok    in UDP 45.33.32.156:40005 -> 192.168.1.10:161                 DROP   default policy
+  ok   out TCP 192.168.1.10:51001 -> 45.33.32.156:23 [S]              DROP   block outbound telnet
+
+6. Spoofed / unsolicited packets
+  ok    in TCP 45.33.32.156:443 -> 192.168.1.10:51999 [A]             DROP   invalid state (no matching connection)
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=0 code=0            DROP   invalid state (no matching connection)
+  ok    in UDP 45.33.32.156:53 -> 192.168.1.10:53999                  DROP   default policy
+
+7. Blacklisted address
+  ok    in TCP 185.220.101.5:40006 -> 192.168.1.10:80 [S]             DROP   blacklisted source
+
+8. Ping with rate limit (5/s)
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            DROP   rate limit exceeded (ping, rate limited)
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            DROP   rate limit exceeded (ping, rate limited)
+  ok    in ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0            ACCEPT ping, rate limited
+
+9. Port scan detection
+  ok    in TCP 203.0.113.66:60000 -> 192.168.1.10:20 [S]              DROP   default policy
+  ok    in TCP 203.0.113.66:60014 -> 192.168.1.10:34 [S]              DROP   default policy
+  ok    in TCP 203.0.113.66:60015 -> 192.168.1.10:35 [S]              DROP   IDS: port scan (16 ports in 5s)
+  ok    in TCP 203.0.113.66:60019 -> 192.168.1.10:39 [S]              DROP   source banned by IDS: port scan (16 ports in 5s)
+  ok    in TCP 203.0.113.66:60100 -> 192.168.1.10:80 [S]              DROP   source banned by IDS: port scan (16 ports in 5s)
+
+10. SYN flood detection
+  ok    in TCP 198.51.100.77:30000 -> 192.168.1.10:80 [S]             ACCEPT public web server
+  ok    in TCP 198.51.100.77:30019 -> 192.168.1.10:80 [S]             ACCEPT public web server
+  ok    in TCP 198.51.100.77:30020 -> 192.168.1.10:80 [S]             DROP   IDS: SYN flood (21 SYNs in 1s)
+  ok    in TCP 198.51.100.77:30024 -> 192.168.1.10:80 [S]             DROP   source banned by IDS: SYN flood (21 SYNs in 1s)
+
+11. Malformed packet
+  ok    in <malformed bytes>                                          DROP   malformed packet: buffer shorter than minimum IPv4 header
+
+Simulation: 73 passed, 0 failed (73 packets)
+
+=== Firewall statistics ===
+Accepted: 35   Dropped: 38   Tracked connections: 25
+Verdict reasons:
+      21  public web server
+      16  default policy
+       6  ping, rate limited
+       5  established connection
+       5  source banned by IDS: port scan (16 ports in 5s)
+       4  source banned by IDS: SYN flood (21 SYNs in 1s)
+       2  allow all other outbound
+       2  drop SSH from elsewhere
+       2  block SMB / RDP / NetBIOS
+       2  invalid state (no matching connection)
+       2  rate limit exceeded (ping, rate limited)
+       1  SSH only from the LAN
+       1  block outbound telnet
+       1  blacklisted source
+       1  IDS: port scan (16 ports in 5s)
+       1  IDS: SYN flood (21 SYNs in 1s)
+       1  malformed packet: buffer shorter than minimum IPv4 header
+Rule hits:
+       0  [1] ACCEPT allow loopback
+       1  [2] DROP   block outbound telnet
+       2  [3] ACCEPT allow all other outbound
+       1  [4] ACCEPT SSH only from the LAN
+       2  [5] DROP   drop SSH from elsewhere
+      21  [6] ACCEPT public web server
+       2  [7] DROP   block SMB / RDP / NetBIOS
+       8  [8] ACCEPT ping, rate limited
+       0  [9] ACCEPT ICMP destination unreachable
+       0  [10] ACCEPT ICMP time exceeded
+IDS alerts:
+  203.0.113.66: port scan (16 ports in 5s)
+  198.51.100.77: SYN flood (21 SYNs in 1s)
+
+$ python3 demo/make_sample_pcap.py demo/sample.pcap
+wrote 73 packets to demo/sample.pcap
+
+$ python3 pywall.py pcap demo/sample.pcap
+12:04:02  ACCEPT TCP 192.168.1.25:40000 -> 192.168.1.10:22 [S]           SSH only from the LAN
+12:04:02  DROP   TCP 45.33.32.156:40001 -> 192.168.1.10:22 [S]           drop SSH from elsewhere
+12:04:02  DROP   TCP 45.33.32.156:40003 -> 192.168.1.10:3389 [S]         block SMB / RDP / NetBIOS
+12:04:02  DROP   TCP 45.33.32.156:40004 -> 192.168.1.10:445 [S]          block SMB / RDP / NetBIOS
+12:04:02  DROP   UDP 45.33.32.156:40005 -> 192.168.1.10:161              default policy
+12:04:02  DROP   TCP 192.168.1.10:51001 -> 45.33.32.156:23 [S]           block outbound telnet
+12:04:02  DROP   TCP 45.33.32.156:443 -> 192.168.1.10:51999 [A]          invalid state (no matching connection)
+12:04:02  DROP   ICMP 45.33.32.156 -> 192.168.1.10 type=0 code=0         invalid state (no matching connection)
+12:04:02  DROP   UDP 45.33.32.156:53 -> 192.168.1.10:53999               default policy
+12:04:02  DROP   TCP 185.220.101.5:40006 -> 192.168.1.10:80 [S]          blacklisted source
+12:04:02  DROP   ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0         rate limit exceeded (ping, rate limited)
+12:04:02  DROP   ICMP 45.33.32.156 -> 192.168.1.10 type=8 code=0         rate limit exceeded (ping, rate limited)
+12:04:02  DROP   TCP 203.0.113.66:60000 -> 192.168.1.10:20 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60001 -> 192.168.1.10:21 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60002 -> 192.168.1.10:22 [S]           drop SSH from elsewhere
+12:04:02  DROP   TCP 203.0.113.66:60003 -> 192.168.1.10:23 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60004 -> 192.168.1.10:24 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60005 -> 192.168.1.10:25 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60006 -> 192.168.1.10:26 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60007 -> 192.168.1.10:27 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60008 -> 192.168.1.10:28 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60009 -> 192.168.1.10:29 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60010 -> 192.168.1.10:30 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60011 -> 192.168.1.10:31 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60012 -> 192.168.1.10:32 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60013 -> 192.168.1.10:33 [S]           default policy
+12:04:02  DROP   TCP 203.0.113.66:60014 -> 192.168.1.10:34 [S]           default policy
+12:04:02  IDS ALERT port scan (16 ports in 5s) from 203.0.113.66 - banned for 60s
+12:04:02  DROP   TCP 203.0.113.66:60015 -> 192.168.1.10:35 [S]           IDS: port scan (16 ports in 5s)
+12:04:02  DROP   TCP 203.0.113.66:60016 -> 192.168.1.10:36 [S]           source banned by IDS: port scan (16 ports in 5s)
+12:04:02  DROP   TCP 203.0.113.66:60017 -> 192.168.1.10:37 [S]           source banned by IDS: port scan (16 ports in 5s)
+12:04:02  DROP   TCP 203.0.113.66:60018 -> 192.168.1.10:38 [S]           source banned by IDS: port scan (16 ports in 5s)
+12:04:02  DROP   TCP 203.0.113.66:60019 -> 192.168.1.10:39 [S]           source banned by IDS: port scan (16 ports in 5s)
+12:04:02  DROP   TCP 203.0.113.66:60100 -> 192.168.1.10:80 [S]           source banned by IDS: port scan (16 ports in 5s)
+12:04:02  IDS ALERT SYN flood (21 SYNs in 1s) from 198.51.100.77 - banned for 60s
+12:04:02  DROP   TCP 198.51.100.77:30020 -> 192.168.1.10:80 [S]          IDS: SYN flood (21 SYNs in 1s)
+12:04:02  DROP   TCP 198.51.100.77:30021 -> 192.168.1.10:80 [S]          source banned by IDS: SYN flood (21 SYNs in 1s)
+12:04:02  DROP   TCP 198.51.100.77:30022 -> 192.168.1.10:80 [S]          source banned by IDS: SYN flood (21 SYNs in 1s)
+12:04:02  DROP   TCP 198.51.100.77:30023 -> 192.168.1.10:80 [S]          source banned by IDS: SYN flood (21 SYNs in 1s)
+12:04:02  DROP   TCP 198.51.100.77:30024 -> 192.168.1.10:80 [S]          source banned by IDS: SYN flood (21 SYNs in 1s)
+12:04:02  DROP   <unparseable>                                           malformed packet: buffer shorter than minimum IPv4 header
+
+=== Firewall statistics ===
+Accepted: 35   Dropped: 38   Tracked connections: 25
+Verdict reasons:
+      21  public web server
+      16  default policy
+       6  ping, rate limited
+       5  established connection
+       5  source banned by IDS: port scan (16 ports in 5s)
+       4  source banned by IDS: SYN flood (21 SYNs in 1s)
+       2  allow all other outbound
+       2  drop SSH from elsewhere
+       2  block SMB / RDP / NetBIOS
+       2  invalid state (no matching connection)
+       2  rate limit exceeded (ping, rate limited)
+       1  SSH only from the LAN
+       1  block outbound telnet
+       1  blacklisted source
+       1  IDS: port scan (16 ports in 5s)
+       1  IDS: SYN flood (21 SYNs in 1s)
+       1  malformed packet: buffer shorter than minimum IPv4 header
+Rule hits:
+       0  [1] ACCEPT allow loopback
+       1  [2] DROP   block outbound telnet
+       2  [3] ACCEPT allow all other outbound
+       1  [4] ACCEPT SSH only from the LAN
+       2  [5] DROP   drop SSH from elsewhere
+      21  [6] ACCEPT public web server
+       2  [7] DROP   block SMB / RDP / NetBIOS
+       8  [8] ACCEPT ping, rate limited
+       0  [9] ACCEPT ICMP destination unreachable
+       0  [10] ACCEPT ICMP time exceeded
+IDS alerts:
+  203.0.113.66: port scan (16 ports in 5s)
+  198.51.100.77: SYN flood (21 SYNs in 1s)
+
+$ python3 -m unittest discover -s tests -t . -v
+test_ip_checksum_valid (tests.test_firewall.PacketTests.test_ip_checksum_valid) ... ok
+test_malformed (tests.test_firewall.PacketTests.test_malformed) ... ok
+test_tcp_round_trip (tests.test_firewall.PacketTests.test_tcp_round_trip) ... ok
+test_udp_and_icmp (tests.test_firewall.PacketTests.test_udp_and_icmp) ... ok
+test_read_ethernet_pcap (tests.test_firewall.PcapTests.test_read_ethernet_pcap) ... ok
+test_cidr_and_port_ranges (tests.test_firewall.RuleTests.test_cidr_and_port_ranges) ... ok
+test_default_policy (tests.test_firewall.RuleTests.test_default_policy) ... ok
+test_direction (tests.test_firewall.RuleTests.test_direction) ... ok
+test_first_match_wins (tests.test_firewall.RuleTests.test_first_match_wins) ... ok
+test_invalid_rules_rejected (tests.test_firewall.RuleTests.test_invalid_rules_rejected) ... ok
+test_shipped_config_loads (tests.test_firewall.RuleTests.test_shipped_config_loads) ... ok
+test_tcp_flag_match (tests.test_firewall.RuleTests.test_tcp_flag_match) ... ok
+test_token_bucket (tests.test_firewall.RuleTests.test_token_bucket) ... ok
+test_blacklist_beats_rules (tests.test_firewall.SecurityTests.test_blacklist_beats_rules) ... ok
+test_port_scan_ban_and_expiry (tests.test_firewall.SecurityTests.test_port_scan_ban_and_expiry) ... IDS ALERT port scan (6 ports in 5s) from 8.8.4.4 - banned for 30s
+ok
+test_rate_limited_ping (tests.test_firewall.SecurityTests.test_rate_limited_ping) ... ok
+test_slow_traffic_not_flagged (tests.test_firewall.SecurityTests.test_slow_traffic_not_flagged) ... ok
+test_syn_flood (tests.test_firewall.SecurityTests.test_syn_flood) ... IDS ALERT SYN flood (11 SYNs in 1s) from 8.8.4.4 - banned for 60s
+ok
+test_whitelist_beats_ids (tests.test_firewall.SecurityTests.test_whitelist_beats_ids) ... ok
+test_all_scenarios_pass (tests.test_firewall.SimulationTest.test_all_scenarios_pass) ... IDS ALERT port scan (16 ports in 5s) from 203.0.113.66 - banned for 60s
+IDS ALERT SYN flood (21 SYNs in 1s) from 198.51.100.77 - banned for 60s
+ok
+test_fin_shortens_timeout_and_expiry (tests.test_firewall.StatefulTests.test_fin_shortens_timeout_and_expiry) ... ok
+test_ping_reply (tests.test_firewall.StatefulTests.test_ping_reply) ... ok
+test_reply_allowed_only_after_request (tests.test_firewall.StatefulTests.test_reply_allowed_only_after_request) ... ok
+test_rst_closes_connection (tests.test_firewall.StatefulTests.test_rst_closes_connection) ... ok
+test_udp_reply (tests.test_firewall.StatefulTests.test_udp_reply) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 0.009s
+
+OK

@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T07:34:19.178999+00:00",
+  "title": "Design System: PyWall",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Charcoal Ground",
+        "canonical": "#141517",
+        "tonalRamp": [
+          "#1c1e21",
+          "#393b41",
+          "#555961",
+          "#717682",
+          "#90959f",
+          "#b1b4bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Graphite Surface",
+        "canonical": "#18191c",
+        "tonalRamp": [
+          "#1c1d21",
+          "#383a42",
+          "#545862",
+          "#707583",
+          "#9094a0",
+          "#b0b3bb",
+          "#d1d2d7",
+          "#f1f2f3"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "canonical": "#1f2124",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383c41",
+          "#545a62",
+          "#707782",
+          "#90969f",
+          "#b0b5bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "well": {
+        "role": "neutral",
+        "displayName": "Well",
+        "canonical": "#121315",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383b42",
+          "#545962",
+          "#707683",
+          "#9095a0",
+          "#b0b4bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Divider Border",
+        "canonical": "#25272b",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383b41",
+          "#545962",
+          "#707682",
+          "#90959f",
+          "#b0b4bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Row Rule",
+        "canonical": "#202226",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383b42",
+          "#535863",
+          "#6f7684",
+          "#8f95a0",
+          "#b0b4bc",
+          "#d0d3d8",
+          "#f1f2f3"
+        ]
+      },
+      "control": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "#3a3d42",
+        "tonalRamp": [
+          "#1d1e21",
+          "#393c41",
+          "#555a61",
+          "#717781",
+          "#91969e",
+          "#b1b5bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Paper Ink",
+        "canonical": "#f2f1ee",
+        "tonalRamp": [
+          "#23211b",
+          "#454135",
+          "#67614f",
+          "#898169",
+          "#a59e8a",
+          "#c0bbac",
+          "#dad7ce",
+          "#f4f3f1"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#a3a6ad",
+        "tonalRamp": [
+          "#1d1e20",
+          "#393b40",
+          "#565960",
+          "#727780",
+          "#92959d",
+          "#b2b4ba",
+          "#d2d3d6",
+          "#f2f2f3"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "#8a8d94",
+        "tonalRamp": [
+          "#1d1e20",
+          "#3a3c40",
+          "#57595f",
+          "#74777f",
+          "#93969c",
+          "#b3b4b9",
+          "#d2d3d6",
+          "#f2f2f3"
+        ]
+      },
+      "select": {
+        "role": "neutral",
+        "displayName": "Selection Line",
+        "canonical": "#f2f1ee",
+        "tonalRamp": [
+          "#23211b",
+          "#454135",
+          "#67614f",
+          "#898169",
+          "#a59e8a",
+          "#c0bbac",
+          "#dad7ce",
+          "#f4f3f1"
+        ]
+      },
+      "allow": {
+        "role": "primary",
+        "displayName": "Forwarding Teal",
+        "canonical": "#3fb8a9",
+        "tonalRamp": [
+          "#102e2a",
+          "#1f5b53",
+          "#2e887d",
+          "#3eb5a6",
+          "#65cabe",
+          "#92dad1",
+          "#bfe9e4",
+          "#ecf8f7"
+        ]
+      },
+      "allow-ink": {
+        "role": "primary",
+        "displayName": "Forwarding Teal Ink",
+        "canonical": "#5fd0c1",
+        "tonalRamp": [
+          "#0e2f2b",
+          "#1c5e55",
+          "#298d80",
+          "#37bcaa",
+          "#5fd0c1",
+          "#8eded3",
+          "#bdebe5",
+          "#ebf9f7"
+        ]
+      },
+      "allow-bg": {
+        "role": "primary",
+        "displayName": "Forwarding Teal Pill",
+        "canonical": "#15302c",
+        "tonalRamp": [
+          "#132b27",
+          "#25554e",
+          "#377f74",
+          "#4aa99b",
+          "#6fc0b4",
+          "#99d2ca",
+          "#c3e5e0",
+          "#edf7f6"
+        ]
+      },
+      "block": {
+        "role": "secondary",
+        "displayName": "Held Coral",
+        "canonical": "#ec6a5c",
+        "tonalRamp": [
+          "#370b06",
+          "#6d160d",
+          "#a32113",
+          "#d92c19",
+          "#e95646",
+          "#f0877c",
+          "#f6b9b2",
+          "#fceae8"
+        ]
+      },
+      "block-ink": {
+        "role": "secondary",
+        "displayName": "Held Coral Ink",
+        "canonical": "#f4897d",
+        "tonalRamp": [
+          "#380a05",
+          "#701409",
+          "#a81e0e",
+          "#e02813",
+          "#ef5240",
+          "#f48478",
+          "#f8b7b0",
+          "#fdeae7"
+        ]
+      },
+      "block-bg": {
+        "role": "secondary",
+        "displayName": "Held Coral Pill",
+        "canonical": "#3a1d1b",
+        "tonalRamp": [
+          "#2a1513",
+          "#532a27",
+          "#7c3e3a",
+          "#a6534d",
+          "#bd7772",
+          "#d09f9b",
+          "#e4c6c4",
+          "#f7eeee"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Inspection Amber",
+        "canonical": "#e0a43a",
+        "tonalRamp": [
+          "#352508",
+          "#694911",
+          "#9d6d19",
+          "#d29221",
+          "#e3ac4c",
+          "#ebc580",
+          "#f3ddb5",
+          "#fcf5e9"
+        ]
+      },
+      "warn-ink": {
+        "role": "tertiary",
+        "displayName": "Inspection Amber Ink",
+        "canonical": "#ecb95a",
+        "tonalRamp": [
+          "#372606",
+          "#6d4b0d",
+          "#a37113",
+          "#da9619",
+          "#eab045",
+          "#f0c77c",
+          "#f6deb2",
+          "#fcf5e8"
+        ]
+      },
+      "warn-bg": {
+        "role": "tertiary",
+        "displayName": "Inspection Amber Pill",
+        "canonical": "#33280f",
+        "tonalRamp": [
+          "#2f250e",
+          "#5e4a1c",
+          "#8d6e29",
+          "#bb9337",
+          "#d0ad5f",
+          "#dec58e",
+          "#ebddbd",
+          "#f9f5eb"
+        ]
+      },
+      "transit": {
+        "role": "neutral",
+        "displayName": "Transit Grey",
+        "canonical": "#34373c",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383c41",
+          "#555962",
+          "#717782",
+          "#90969f",
+          "#b1b4bb",
+          "#d1d3d7",
+          "#f1f2f3"
+        ]
+      },
+      "idle": {
+        "role": "neutral",
+        "displayName": "Idle Guide",
+        "canonical": "#2c2f34",
+        "tonalRamp": [
+          "#1c1e21",
+          "#383c42",
+          "#535963",
+          "#6f7783",
+          "#8f95a0",
+          "#b0b4bc",
+          "#d0d3d8",
+          "#f1f2f3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page name, one per view."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Panel headings; inspector verdict."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Rows, explanations, map labels."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Column heads, figure labels, asides, timestamps."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Figure-strip values."
+      },
+      "figure-lead": {
+        "displayName": "Lead Figure",
+        "purpose": "The single lead figure in the strip."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "IPs, ports, hex, counts."
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3)",
+        "purpose": "Tooltips and hover tips only; nothing at rest."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "State changes, 150-250ms."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "Reserved in-out curve for on-screen movement."
+      },
+      {
+        "name": "state-change",
+        "value": "150ms",
+        "purpose": "Hover, press, colour changes; 160ms switches; 200ms stale dim."
+      },
+      {
+        "name": "press",
+        "value": "scale(0.97) over 120ms",
+        "purpose": "Button active state."
+      },
+      {
+        "name": "packet-dots",
+        "value": "requestAnimationFrame, real sampled packets",
+        "purpose": "The only continuous motion; pausable; off under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "bottom-bar",
+        "value": "760px"
+      },
+      {
+        "name": "settings-stack",
+        "value": "860px"
+      },
+      {
+        "name": "analytics-stack",
+        "value": "980px"
+      },
+      {
+        "name": "stack-side",
+        "value": "1180px"
+      },
+      {
+        "name": "analytics-lists",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default outlined action, 32px.",
+      "html": "<button class=\"ds-btn\">Pause motion</button>",
+      "css": ".ds-btn{height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--control,#3a3d42);background:transparent;color:var(--text,#f2f1ee);font:400 13px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background-color 150ms cubic-bezier(0.23,1,0.32,1),border-color 150ms cubic-bezier(0.23,1,0.32,1),transform 120ms cubic-bezier(0.23,1,0.32,1)}.ds-btn:hover{background:#1f2124;border-color:#4a4e55}.ds-btn:active{transform:scale(0.97)}.ds-btn:focus-visible{outline:1px solid #f2f1ee;outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one committing action in a context.",
+      "html": "<button class=\"ds-btn-primary\">Save rule</button>",
+      "css": ".ds-btn-primary{height:32px;padding:0 12px;border-radius:6px;border:1px solid #f2f1ee;background:#f2f1ee;color:#141517;font:600 13px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background-color 150ms cubic-bezier(0.23,1,0.32,1),transform 120ms}.ds-btn-primary:hover{background:#fff}.ds-btn-primary:active{transform:scale(0.97)}.ds-btn-primary:focus-visible{outline:1px solid #f2f1ee;outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action, coral ink.",
+      "html": "<button class=\"ds-btn-danger\">Delete rule</button>",
+      "css": ".ds-btn-danger{height:32px;padding:0 12px;border-radius:6px;border:1px solid #5a2e29;background:transparent;color:#f4897d;font:400 13px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background-color 150ms cubic-bezier(0.23,1,0.32,1)}.ds-btn-danger:hover{background:#3a1d1b}.ds-btn-danger:focus-visible{outline:1px solid #f2f1ee;outline-offset:2px}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Sunken well field; focus is a paper-ink edge.",
+      "html": "<input class=\"ds-input\" placeholder=\"Filter by IP or port\">",
+      "css": ".ds-input{height:32px;padding:0 10px;border-radius:6px;border:1px solid #3a3d42;background:#121315;color:#f2f1ee;font:400 13px 'Public Sans',system-ui,sans-serif;caret-color:#3fb8a9;transition:border-color 150ms cubic-bezier(0.23,1,0.32,1)}.ds-input:hover{border-color:#4a4e55}.ds-input:focus{outline:none;border-color:#f2f1ee}.ds-input::placeholder{color:#8a8d94}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented",
+      "description": "Selection as a 1px ink line exactly as wide as its label.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">1 min</button><button aria-pressed=\"false\">5 min</button></div>",
+      "css": ".ds-seg{display:inline-flex;gap:14px;height:32px}.ds-seg button{position:relative;background:none;border:0;padding:0;color:#a3a6ad;font:400 13px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:color 150ms cubic-bezier(0.23,1,0.32,1)}.ds-seg button:hover,.ds-seg button[aria-pressed=true]{color:#f2f1ee}.ds-seg button[aria-pressed=true]::after{content:'';position:absolute;left:0;right:0;bottom:3px;height:1px;background:#f2f1ee}.ds-seg button:focus-visible{outline:1px solid #f2f1ee;outline-offset:2px}"
+    },
+    {
+      "name": "Verdict Marks",
+      "kind": "chip",
+      "refersTo": "verdict",
+      "description": "Shape plus colour plus word: ring allowed, hatch held, diamond IDS, hollow circle information.",
+      "html": "<span class=\"ds-v ds-allow\">Allowed</span> <span class=\"ds-v ds-block\">Held</span> <span class=\"ds-v ds-warn\">IDS</span> <span class=\"ds-v ds-info\">Info</span>",
+      "css": ".ds-v{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font:500 13px 'Public Sans',system-ui,sans-serif}.ds-v::before{content:'';width:9px;height:9px;box-sizing:border-box;border-radius:50%}.ds-allow{color:#5fd0c1}.ds-allow::before{border:2px solid #3fb8a9}.ds-block{color:#f4897d}.ds-block::before{border:1.5px solid #ec6a5c;border-radius:2px;background:repeating-linear-gradient(135deg,#ec6a5c 0 2px,transparent 2px 4px)}.ds-warn{color:#ecb95a}.ds-warn::before{width:8px;height:8px;border:2px solid #e0a43a;border-radius:1px;transform:rotate(45deg)}.ds-info{color:#a3a6ad}.ds-info::before{border:1.5px solid #6b6f76}"
+    },
+    {
+      "name": "State Pills",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "Pale pill pairs for state labels.",
+      "html": "<span class=\"ds-pill\">tcp</span> <span class=\"ds-pill ds-p-allow\">ACCEPT</span> <span class=\"ds-pill ds-p-block\">DROP</span> <span class=\"ds-pill ds-p-warn\">rate limit</span>",
+      "css": ".ds-pill{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:4px;font:500 12px 'Public Sans',system-ui,sans-serif;background:#1f2124;color:#a3a6ad}.ds-p-allow{background:#15302c;color:#5fd0c1}.ds-p-block{background:#3a1d1b;color:#f4897d}.ds-p-warn{background:#33280f;color:#ecb95a}"
+    },
+    {
+      "name": "Figure Strip",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "One divided panel of figures; lead figure largest.",
+      "html": "<div class=\"ds-figs\"><a class=\"ds-fig ds-lead\"><span>Packets processed</span><b>2,213</b></a><a class=\"ds-fig\"><span>Forwarded</span><b class=\"a\">2,159</b></a><a class=\"ds-fig\"><span>Held (dropped)</span><b class=\"h\">54</b></a><a class=\"ds-fig\"><span>IDS bans</span><b class=\"w\">2</b></a></div>",
+      "css": ".ds-figs{display:grid;grid-template-columns:1.35fr repeat(3,1fr);background:#18191c;border-radius:6px;font-family:'Public Sans',system-ui,sans-serif}.ds-fig{display:flex;flex-direction:column;gap:4px;padding:14px 18px;border-left:1px solid #25272b;color:#f2f1ee;transition:background-color 150ms cubic-bezier(0.23,1,0.32,1);cursor:pointer}.ds-fig:first-child{border-left:0}.ds-fig:hover{background:#1f2124}.ds-fig span{color:#a3a6ad;font-size:12px}.ds-fig b{font:500 22px/1.15 'JetBrains Mono',monospace}.ds-lead b{font-size:28px}.ds-fig .a{color:#5fd0c1}.ds-fig .h{color:#f4897d}.ds-fig .w{color:#ecb95a}"
+    },
+    {
+      "name": "Icon Rail",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "56px rail with postmark mark; active item marked by a 1px ink line.",
+      "html": "<nav class=\"ds-rail\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\"><circle cx=\"14\" cy=\"14\" r=\"11\" fill=\"none\" stroke=\"#3fb8a9\" stroke-width=\"2\"/><circle cx=\"14\" cy=\"14\" r=\"7\" fill=\"none\" stroke=\"#3fb8a9\" stroke-dasharray=\"2 2.4\"/><circle cx=\"14\" cy=\"14\" r=\"3\" fill=\"#3fb8a9\"/></svg><a class=\"ds-ri on\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M2 5h14M2 9h14M2 13h14\"/></svg></a><a class=\"ds-ri\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M3 15V9M9 15V3M15 15v-8\"/></svg></a></nav>",
+      "css": ".ds-rail{width:56px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 0;background:#141517;border-right:1px solid #202226}.ds-rail>svg{margin-bottom:18px}.ds-ri{position:relative;width:40px;height:40px;display:grid;place-items:center;border-radius:6px;color:#80838a;transition:color 150ms cubic-bezier(0.23,1,0.32,1),background-color 150ms}.ds-ri:hover{color:#f2f1ee;background:#1f2124}.ds-ri.on{color:#f2f1ee}.ds-ri.on::after{content:'';position:absolute;right:-8px;top:10px;bottom:10px;width:1px;background:#f2f1ee}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Sorting Office",
+    "overview": "Every packet is addressed mail. Sources arrive on the left, are read at a sorting frame that has one pigeonhole column per real pipeline stage (Parse, Lists, Bans, IDS, State, Rules, Policy), and either continue to their service on the right or drop into the bin of the stage that held them. The console is built for an examiner on a projector, a student learning, and an operator in a long session, so it is dense but calm: charcoal steps for structure, colour reserved for state, and every figure traceable to the packets behind it.\n\nThe ground is near-black charcoal and panels are slightly lighter charcoal with no border and no shadow. Words are set in Public Sans and ranked by weight and ink, not by size; addresses, ports, timestamps and counts are set in JetBrains Mono like labels on an envelope. Selection is never a fill or a glow: it is a single 1px ink line. Verdicts always carry a shape as well as a colour, so the console reads the same in greyscale.\n\nThe category default, a KPI-card grid over a line chart and an alerts table, is the explicit anti-reference. The figures are one divided strip, and the hero is a flow map of real traffic.",
+    "keyCharacteristics": [
+      "Charcoal tonal layering; no borders on panels, no shadows at rest.",
+      "Colour means state only: teal forwarded, coral held, amber IDS and rate limits.",
+      "Shape plus colour for every verdict: ring, 45-degree hatch, diamond, hollow circle.",
+      "Mono for every network value; sans for every word.",
+      "Selection is a 1px ink line.",
+      "Motion is state feedback and real packet dots, nothing else."
+    ],
+    "rules": [
+      {
+        "name": "The Colour Is State Rule",
+        "body": "Teal, coral and amber appear only where they mean forwarded, held, or inspected. Nothing decorative is tinted.",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral Witness Rule",
+        "body": "Status that is not a verdict stays grey: the disconnected stamp is a grey dot and paper ink, and the simulated and capture-replay source badges are grey. Only a live packet source shows teal, because live capture is the forwarding path working.",
+        "section": "colors"
+      },
+      {
+        "name": "The Envelope Rule",
+        "body": "Addresses, ports, protocols, timestamps, byte offsets and counts are always mono; labels and sentences are never mono. This is a user requirement, not decoration.",
+        "section": "typography"
+      },
+      {
+        "name": "The Rank By Ink Rule",
+        "body": "Hierarchy comes from weight (400, 500, 600) and ink (text, muted, faint), not from new sizes. Uppercase labels and tracked-out caps are not part of the system.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Desk Rule",
+        "body": "Anything that stays on screen sits flat; only a tooltip that follows the pointer may cast a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** mark selection with the 1px paper-ink line and nothing else.",
+      "**Do** pair every verdict colour with its shape and word: ring, hatch, diamond, hollow circle.",
+      "**Do** set every address, port, timestamp and count in JetBrains Mono, and every word in Public Sans.",
+      "**Do** open each view with title, finding line, source badge and freshness stamp.",
+      "**Do** use one width scale across a flow map and draw only real sampled packets.",
+      "**Do** put loading, empty and error states inside the block they belong to.",
+      "**Do** keep state transitions between 150 and 250ms and honour prefers-reduced-motion."
+    ],
+    "donts": [
+      "**Don't** use teal, coral or amber for anything that is not forwarded, held, or inspected; keep the source badge (except live) and the disconnected stamp grey.",
+      "**Don't** add borders or shadows to panels; only floating tips use the float shadow.",
+      "**Don't** build a KPI-card grid; figures live in one divided strip with the lead largest.",
+      "**Don't** introduce uppercase eyebrows, kickers or tracked caps above headings.",
+      "**Don't** animate anything except state feedback and packet dots."
+    ]
+  }
+}

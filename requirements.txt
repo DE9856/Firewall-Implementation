@@ -1,0 +1,4 @@
+# Only needed for `live` mode. simulate / pcap / check / tests use the standard library only.
+# Fedora build deps:  sudo dnf install gcc python3-devel libnetfilter_queue-devel
+# Debian/Ubuntu:      sudo apt install build-essential python3-dev libnetfilter-queue-dev
+NetfilterQueue>=1.1

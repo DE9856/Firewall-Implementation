@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Sorting Office</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;overflow:hidden;background:#141517;color:#f2f1ee;font:13px/1.45 "Public Sans",system-ui,sans-serif;display:grid;grid-template-columns:56px 1fr}
+.m{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.rail{border-right:1px solid #232528;display:flex;flex-direction:column;align-items:center;padding-top:16px;gap:14px}
+.mark{width:26px;height:26px;border:2px solid #3fb8a9;border-radius:50%;position:relative;margin-bottom:14px}.mark:after{content:"";position:absolute;inset:7px;background:#3fb8a9;border-radius:50%}
+.ri{width:18px;height:18px;border:1.5px solid #6f727a;border-radius:4px}.ri.on{border-color:#f2f1ee;box-shadow:inset -2px 0 0 0 transparent}
+.main{padding:24px 32px;display:grid;grid-template-rows:auto auto 1fr;gap:20px;min-width:0}
+.top{display:flex;align-items:baseline;gap:16px}h1{font-size:24px;font-weight:600}.sub{color:#9a9da4}
+.src{margin-left:auto;display:flex;gap:8px;align-items:center;color:#e0a43a;font-size:12px}.src i{width:8px;height:8px;border-radius:50%;background:#e0a43a}
+.strip{display:grid;grid-template-columns:1.3fr repeat(6,1fr);background:#1b1d20;border-radius:6px}
+.strip div{padding:14px 18px;border-left:1px solid #26292d}.strip div:first-child{border:0}
+.strip b{display:block;font:500 22px/1.2 "JetBrains Mono",monospace}.strip span{color:#9a9da4;font-size:12px}
+.strip .lead b{font-size:30px}.ok{color:#3fb8a9}.no{color:#ec6a5c}
+.body{display:grid;grid-template-columns:1fr 340px;gap:24px;min-height:0}
+.map{background:#17191b;border-radius:6px;position:relative;overflow:hidden}
+.side{background:#17191b;border-radius:6px;padding:16px 18px}
+.side h2,.map h2{font-size:14px;font-weight:600}.side .row{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 0;border-top:1px solid #222427}
+.side .row:first-of-type{border:0}.t{color:#9a9da4;font-size:12px}.pm{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid;margin-right:6px;vertical-align:-1px}
+.lbl{font-size:12px;fill:#cfc6b6}.lblm{font:12px "JetBrains Mono",monospace;fill:#f2f1ee}.q{font-size:12px;fill:#9a9da4}
+</style></head><body>
+<nav class="rail"><div class="mark"></div><div class="ri on"></div><div class="ri"></div><div class="ri"></div><div class="ri"></div><div class="ri"></div></nav>
+<main class="main">
+ <div class="top"><h1>Overview</h1><span class="sub">Last 5 minutes · 2 sources banned by IDS, 263 packets held</span><span class="src"><i></i>Simulated traffic</span></div>
+ <div class="strip">
+  <div class="lead"><span>Packets processed</span><b class="m">1,284</b></div>
+  <div><span>Forwarded</span><b class="m ok">1,021</b></div><div><span>Held (dropped)</span><b class="m no">263</b></div>
+  <div><span>Rate</span><b class="m">42 <small style="font-size:13px;color:#9a9da4">pkt/s</small></b></div>
+  <div><span>Connections</span><b class="m">31</b></div><div><span>Active rules</span><b class="m">10</b></div><div><span>IDS bans</span><b class="m" style="color:#e0a43a">2</b></div>
+ </div>
+ <div class="body">
+  <section class="map">
+   <h2 style="position:absolute;left:20px;top:16px">How packets moved through the firewall</h2>
+   <svg width="100%" height="100%" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet">
+    <defs><pattern id="h" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#ec6a5c" fill-opacity=".28"/><line x1="0" y1="0" x2="0" y2="6" stroke="#ec6a5c" stroke-width="2"/></pattern></defs>
+    <g fill="none" stroke="#2a2d31" stroke-dasharray="2 5"><path d="M140 120 C300 120 300 300 430 300"/><path d="M140 440 C300 440 300 300 430 300"/><path d="M620 300 C760 300 760 100 880 100"/></g>
+    <!-- sources -->
+    <text class="lbl" x="24" y="96">LAN</text><text class="lblm" x="24" y="114">192.168.1.0/24</text>
+    <text class="lbl" x="24" y="206">Internet</text><text class="lblm" x="24" y="224">142.250.183.14</text>
+    <text class="lbl" x="24" y="330">Scanner</text><text class="lblm" x="24" y="348">203.0.113.66</text>
+    <text class="lbl" x="24" y="446">Flooder</text><text class="lblm" x="24" y="464">198.51.100.77</text>
+    <!-- inbound streams converge -->
+    <path d="M150 108 C300 108 300 250 440 250" stroke="#3fb8a9" stroke-width="18" fill="none" stroke-opacity=".85"/>
+    <path d="M150 218 C300 218 300 282 440 282" stroke="#3fb8a9" stroke-width="30" fill="none" stroke-opacity=".85"/>
+    <path d="M150 340 C300 340 300 318 440 318" stroke="#ec6a5c" stroke-width="12" fill="none" stroke-opacity=".9"/>
+    <path d="M150 456 C300 456 300 348 440 348" stroke="#3fb8a9" stroke-width="10" fill="none" stroke-opacity=".7"/>
+    <path d="M150 466 C300 466 300 360 440 360" stroke="#ec6a5c" stroke-width="8" fill="none"/>
+    <!-- sorting frame -->
+    <g transform="translate(440 210)"><rect width="190" height="170" rx="6" fill="#1f2124"/>
+     <g stroke="#2e3135"><line x1="38" y1="0" x2="38" y2="170"/><line x1="76" y1="0" x2="76" y2="170"/><line x1="114" y1="0" x2="114" y2="170"/><line x1="152" y1="0" x2="152" y2="170"/></g>
+     <text class="q" x="6" y="-8">Lists</text><text class="q" x="42" y="-8">IDS</text><text class="q" x="78" y="-8">State</text><text class="q" x="118" y="-8">Rules</text><text class="q" x="154" y="-8">Policy</text>
+     <path d="M0 50 H190" stroke="#3fb8a9" stroke-width="22" stroke-opacity=".5"/><path d="M0 80 H120" stroke="#3fb8a9" stroke-width="14" stroke-opacity=".5"/>
+     <text x="95" y="198" text-anchor="middle" style="font:600 14px 'Public Sans';fill:#f2f1ee">PyWall</text><text x="95" y="216" text-anchor="middle" class="q">7-stage pipeline</text></g>
+    <!-- held bins -->
+    <g transform="translate(440 440)"><rect x="38" width="38" height="70" fill="url(#h)"/><rect x="76" width="38" height="18" fill="url(#h)"/><rect x="114" width="38" height="30" fill="url(#h)"/><rect x="152" width="38" height="44" fill="url(#h)"/>
+     <text class="lblm" x="57" y="88" text-anchor="middle">96</text><text class="lblm" x="95" y="88" text-anchor="middle">3</text><text class="lblm" x="133" y="88" text-anchor="middle">41</text><text class="lblm" x="171" y="88" text-anchor="middle">123</text>
+     <text class="q" x="0" y="108">Held at the stage that stopped them</text></g>
+    <path d="M497 380 V440" stroke="#ec6a5c" stroke-width="10"/><path d="M611 380 V440" stroke="#ec6a5c" stroke-width="12"/><path d="M573 380 V440" stroke="#ec6a5c" stroke-width="6"/>
+    <!-- forwarded -->
+    <path d="M630 262 C760 262 760 100 870 100" stroke="#3fb8a9" stroke-width="26" fill="none" stroke-opacity=".85"/>
+    <path d="M630 290 C760 290 760 220 870 220" stroke="#3fb8a9" stroke-width="16" fill="none" stroke-opacity=".85"/>
+    <path d="M630 310 C760 310 760 340 870 340" stroke="#3fb8a9" stroke-width="8" fill="none" stroke-opacity=".85"/>
+    <text class="lbl" x="884" y="96">HTTPS</text><text class="lblm" x="884" y="114">:443</text><text class="lbl" x="884" y="216">HTTP</text><text class="lblm" x="884" y="234">:80</text><text class="lbl" x="884" y="336">DNS</text><text class="lblm" x="884" y="354">:53</text>
+   </svg>
+  </section>
+  <aside class="side"><h2>Recent events</h2>
+   <div class="row"><span class="t m">11:51:44</span><span><span class="pm" style="border-color:#e0a43a"></span>SYN flood from <span class="m">198.51.100.77</span>, banned 60 s</span></div>
+   <div class="row"><span class="t m">11:51:38</span><span><span class="pm" style="border-color:#e0a43a"></span>Port scan from <span class="m">203.0.113.66</span>, banned 60 s</span></div>
+   <div class="row"><span class="t m">11:51:37</span><span><span class="pm" style="border-color:#ec6a5c"></span>Ping over 5/s limit, 2 held</span></div>
+   <div class="row"><span class="t m">11:51:35</span><span><span class="pm" style="border-color:#ec6a5c"></span>Lone ACK with no connection, held</span></div>
+   <div class="row"><span class="t m">11:51:32</span><span><span class="pm" style="border-color:#ec6a5c"></span>Outbound telnet held by rule 2</span></div>
+   <div class="row"><span class="t m">11:51:26</span><span><span class="pm" style="border-color:#3fb8a9"></span>Rule set loaded, 10 rules</span></div>
+   <p class="t" style="margin-top:12px">View all events →</p>
+  </aside>
+ </div>
+</main></body></html>

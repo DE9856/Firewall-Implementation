@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Flow Cartography</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}body{width:1440px;height:900px;overflow:hidden;background:#111214;color:#f1f1ef;font:13px/1.45 "Public Sans",system-ui,sans-serif;display:grid;grid-template-columns:56px 1fr 320px}
+.m{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+.rail{border-right:1px solid #222326;display:flex;flex-direction:column;align-items:center;padding-top:16px;gap:14px}
+.mark{width:24px;height:24px;border-radius:6px;background:#46c2b4;margin-bottom:14px}.ri{width:18px;height:18px;border:1.5px solid #6f727a;border-radius:4px}.ri.on{border-color:#f1f1ef}
+.canvas{position:relative}
+.head{position:absolute;left:32px;top:24px}h1{font-size:24px;font-weight:600}.sub{color:#9a9ea5;margin-top:4px}
+.ann{position:absolute;font-size:12px;color:#9a9ea5}.ann b{display:block;font:500 26px/1.15 "JetBrains Mono",monospace;color:#f1f1ef}
+.side{border-left:1px solid #222326;padding:24px 20px}.side h2{font-size:14px;font-weight:600;margin-bottom:8px}
+.row{display:grid;grid-template-columns:64px 1fr;gap:8px;padding:9px 0;border-top:1px solid #1e2023}.t{color:#9a9ea5;font-size:12px}
+.lbl{font-size:12px;fill:#9a9ea5}.lblm{font:12px "JetBrains Mono",monospace;fill:#f1f1ef}
+</style></head><body>
+<nav class="rail"><div class="mark"></div><div class="ri on"></div><div class="ri"></div><div class="ri"></div><div class="ri"></div><div class="ri"></div></nav>
+<section class="canvas">
+ <div class="head"><h1>Overview</h1><p class="sub">Simulated traffic · last 5 minutes</p></div>
+ <div class="ann" style="left:32px;top:110px">Packets processed<b>1,284</b></div>
+ <div class="ann" style="left:220px;top:110px">Rate<b>42 pkt/s</b></div>
+ <div class="ann" style="left:760px;top:110px">Forwarded<b style="color:#46c2b4">1,021</b></div>
+ <div class="ann" style="left:760px;top:760px">Dropped<b style="color:#f06b5d">263</b></div>
+ <div class="ann" style="left:32px;top:780px">31 connections · 10 rules · 2 IDS bans</div>
+ <svg width="1064" height="900" viewBox="0 0 1064 900" style="position:absolute;inset:0">
+  <g fill="none" stroke="#1f2124" stroke-dasharray="1 6"><path d="M0 300 H1064"/><path d="M0 450 H1064"/><path d="M0 600 H1064"/></g>
+  <path d="M40 260 C260 260 320 420 500 430" stroke="#46c2b4" stroke-width="40" fill="none" stroke-opacity=".8"/>
+  <path d="M40 380 C260 380 320 440 500 445" stroke="#46c2b4" stroke-width="60" fill="none" stroke-opacity=".8"/>
+  <path d="M40 540 C260 540 320 470 500 465" stroke="#f06b5d" stroke-width="22" fill="none" stroke-opacity=".85"/>
+  <path d="M40 650 C260 650 320 485 500 480" stroke="#e3a63c" stroke-width="18" fill="none" stroke-opacity=".85"/>
+  <circle cx="530" cy="452" r="46" fill="#1a1c1f" stroke="#3a3d42"/><text x="530" y="448" text-anchor="middle" style="font:600 15px 'Public Sans';fill:#f1f1ef">PyWall</text><text x="530" y="466" text-anchor="middle" class="lbl">pipeline</text>
+  <path d="M560 430 C720 420 760 220 1040 220" stroke="#46c2b4" stroke-width="54" fill="none" stroke-opacity=".8"/>
+  <path d="M565 450 C720 450 800 400 1040 400" stroke="#46c2b4" stroke-width="30" fill="none" stroke-opacity=".8"/>
+  <path d="M560 470 C640 520 660 700 700 720" stroke="#f06b5d" stroke-width="30" fill="none" stroke-opacity=".85"/>
+  <path d="M700 720 h12" stroke="#f06b5d" stroke-width="30"/>
+  <text class="lbl" x="40" y="236">LAN</text><text class="lblm" x="76" y="236">192.168.1.0/24</text>
+  <text class="lbl" x="40" y="346">Internet</text><text class="lblm" x="100" y="346">142.250.183.14</text>
+  <text class="lbl" x="40" y="516">Scanner</text><text class="lblm" x="100" y="516">203.0.113.66</text>
+  <text class="lbl" x="40" y="626">Ping burst</text><text class="lblm" x="112" y="626">45.33.32.156</text>
+  <text class="lbl" x="960" y="190">HTTPS</text><text class="lblm" x="1008" y="190">:443</text><text class="lbl" x="960" y="372">HTTP</text><text class="lblm" x="1000" y="372">:80</text>
+ </svg>
+</section>
+<aside class="side"><h2>Recent events</h2>
+ <div class="row"><span class="t m">11:51:44</span><span>SYN flood from <span class="m">198.51.100.77</span>, banned</span></div>
+ <div class="row"><span class="t m">11:51:38</span><span>Port scan from <span class="m">203.0.113.66</span>, banned</span></div>
+ <div class="row"><span class="t m">11:51:37</span><span>Ping over 5/s limit, 2 dropped</span></div>
+ <div class="row"><span class="t m">11:51:35</span><span>Lone ACK with no connection</span></div>
+ <div class="row"><span class="t m">11:51:32</span><span>Outbound telnet, rule 2</span></div>
+</aside>
+</body></html>

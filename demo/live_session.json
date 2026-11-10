@@ -1,0 +1,396 @@
+{
+ "complete": true,
+ "recorded": "2026-11-10 11:51",
+ "sections": [
+  {
+   "title": "1/5  A private test network",
+   "items": [
+    {
+     "type": "say",
+     "text": "attacker namespace (10.99.0.2, 10.99.0.3) <-veth-> this machine (10.99.0.1)"
+    },
+    {
+     "type": "say",
+     "text": "PyWall will filter ONLY the veth interface pw-host; real internet traffic is untouched"
+    },
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "ip -br addr show pw-host",
+     "output": "pw-host@if7      UP             10.99.0.1/24 fe80::3c26:b2ff:fef0:23cf/64",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "ip -br addr show pw-atk",
+     "output": "pw-atk@if8       UP             10.99.0.2/24 10.99.0.3/24 fe80::30fa:82ff:fe29:b326/64",
+     "fw": []
+    }
+   ]
+  },
+  {
+   "title": "2/5  Baseline: firewall OFF",
+   "items": [
+    {
+     "type": "say",
+     "text": "services on 10.99.0.1: web (80), SSH stand-in (22), RDP stand-in (3389)"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.1 80",
+     "output": "10.99.0.1:80 -> open  [0.00s]",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.1 22",
+     "output": "10.99.0.1:22 -> open  [0.00s]",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.1 3389",
+     "output": "10.99.0.1:3389 -> open  [0.00s]",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "ping -c 2 10.99.0.1",
+     "output": "PING 10.99.0.1 (10.99.0.1) 56(84) bytes of data.\n\n--- 10.99.0.1 ping statistics ---\n2 packets transmitted, 2 received, 0% packet loss, time 1042ms\nrtt min/avg/max/mdev = 0.046/0.046/0.047/0.000 ms",
+     "fw": []
+    },
+    {
+     "type": "say",
+     "text": "everything is reachable"
+    }
+   ]
+  },
+  {
+   "title": "3/5  Start PyWall in live mode",
+   "items": [
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "sudo python3 pywall.py -v --log demo/live_firewall.log live --interface pw-host &",
+     "output": "Firewall active on pw-host. Press Ctrl+C to stop.\nACCEPT UDP 10.99.0.1:54973 -> 239.255.255.250:1900             allow all other outbound\nACCEPT UDP 10.99.0.1:54973 -> 239.255.255.250:1900             established connection\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  allow all other outbound\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  established connection\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  established connection\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  established connection\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  established connection\nACCEPT UDP 10.99.0.1:5353 -> 224.0.0.251:5353                  established connection\nACCEPT UDP 10.99.0.1:54973 -> 239.255.255.250:1900             established connection\nACCEPT UDP 10.99.0.1:54973 -> 239.255.255.250:1900             established connection",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "iptables -S INPUT | grep NFQUEUE; iptables -S OUTPUT | grep NFQUEUE",
+     "output": "-A INPUT -i pw-host -j NFQUEUE --queue-num 1 --queue-bypass\n-A OUTPUT -o pw-host -j NFQUEUE --queue-num 2 --queue-bypass",
+     "fw": []
+    }
+   ]
+  },
+  {
+   "title": "4/5  Same traffic, firewall ON (real packets, live verdicts)",
+   "items": [
+    {
+     "type": "say",
+     "text": "public web server: allowed by rule 6"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "curl -s http://10.99.0.1/",
+     "output": "Hello from the protected host (10.99.0.1)",
+     "fw": [
+      "11:51:26  ACCEPT TCP 10.99.0.2:45456 -> 10.99.0.1:80 [S]  public web server",
+      "(+ 15 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "SSH from outside the LAN and RDP: silently dropped"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.1 22",
+     "output": "10.99.0.1:22 -> filtered (no reply - packet dropped)  [2.00s]",
+     "fw": [
+      "11:51:26  DROP  TCP 10.99.0.2:43044 -> 10.99.0.1:22 [S]  drop SSH from elsewhere",
+      "11:51:27  DROP  TCP 10.99.0.2:43044 -> 10.99.0.1:22 [S]  drop SSH from elsewhere",
+      "(+ 6 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.1 3389",
+     "output": "10.99.0.1:3389 -> filtered (no reply - packet dropped)  [2.00s]",
+     "fw": [
+      "11:51:29  DROP  TCP 10.99.0.2:33966 -> 10.99.0.1:3389 [S]  block SMB / RDP / NetBIOS",
+      "11:51:30  DROP  TCP 10.99.0.2:33966 -> 10.99.0.1:3389 [S]  block SMB / RDP / NetBIOS",
+      "(+ 4 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "outbound: web allowed, telnet (port 23) blocked by rule 2"
+    },
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "curl -s http://10.99.0.2/",
+     "output": "Hello from the protected host (10.99.0.1)",
+     "fw": [
+      "11:51:32  ACCEPT TCP 10.99.0.1:46480 -> 10.99.0.2:80 [S]  allow all other outbound",
+      "(+ 9 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "python3 demo/probe.py tcp 10.99.0.2 23",
+     "output": "10.99.0.2:23 -> filtered (no reply - packet dropped)  [2.00s]",
+     "fw": [
+      "11:51:32  DROP  TCP 10.99.0.1:38302 -> 10.99.0.2:23 [S]  block outbound telnet",
+      "11:51:33  DROP  TCP 10.99.0.1:38302 -> 10.99.0.2:23 [S]  block outbound telnet"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "spoofed TCP ACK that belongs to no connection: dropped as INVALID"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py spoof-ack 10.99.0.2 10.99.0.1 80",
+     "output": "sent a lone TCP ACK 10.99.0.2:44444 -> 10.99.0.1:80 (no handshake before it)",
+     "fw": [
+      "11:51:35  DROP  TCP 10.99.0.2:44444 -> 10.99.0.1:80 [A]  invalid state (no matching connection)",
+      "(+ 2 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "ping burst at 8/s against a 5/s limit: some echo requests dropped"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "ping -c 16 -i 0.125 10.99.0.1",
+     "output": "PING 10.99.0.1 (10.99.0.1) 56(84) bytes of data.\n\n--- 10.99.0.1 ping statistics ---\n16 packets transmitted, 14 received, 12.5% packet loss, time 1922ms\nrtt min/avg/max/mdev = 0.642/0.862/1.129/0.178 ms",
+     "fw": [
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:36  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  DROP  ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  rate limit exceeded (ping, rate limited)",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "11:51:37  DROP  ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  rate limit exceeded (ping, rate limited)",
+      "11:51:37  ACCEPT ICMP 10.99.0.2 -> 10.99.0.1 type=8 code=0  ping, rate limited",
+      "(+ 14 packets accepted as part of established connections)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "port scan of ports 1-40: IDS bans the scanner"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py scan 10.99.0.1 1 40",
+     "output": "scanned 40 ports on 10.99.0.1:\n  filtered  1-40 (40 ports)",
+     "fw": [
+      "11:51:38  DROP  TCP 10.99.0.2:35218 -> 10.99.0.1:1 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:53430 -> 10.99.0.1:2 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:43758 -> 10.99.0.1:3 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:55978 -> 10.99.0.1:4 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:51054 -> 10.99.0.1:5 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:50536 -> 10.99.0.1:6 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:34662 -> 10.99.0.1:7 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:39490 -> 10.99.0.1:8 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:39486 -> 10.99.0.1:9 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:51586 -> 10.99.0.1:10 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:45230 -> 10.99.0.1:11 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:39158 -> 10.99.0.1:12 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:58788 -> 10.99.0.1:13 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:39210 -> 10.99.0.1:14 [S]  default policy",
+      "11:51:38  DROP  TCP 10.99.0.2:38194 -> 10.99.0.1:15 [S]  default policy",
+      "11:51:38  IDS ALERT port scan (16 ports in 5s) from 10.99.0.2 - banned for 60s",
+      "11:51:38  DROP  TCP 10.99.0.2:38690 -> 10.99.0.1:16 [S]  IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:43940 -> 10.99.0.1:17 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:55590 -> 10.99.0.1:18 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:58848 -> 10.99.0.1:19 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:42520 -> 10.99.0.1:20 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:52086 -> 10.99.0.1:21 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:47482 -> 10.99.0.1:22 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:59486 -> 10.99.0.1:23 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:35290 -> 10.99.0.1:24 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:39288 -> 10.99.0.1:26 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:46738 -> 10.99.0.1:25 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:39798 -> 10.99.0.1:27 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:44948 -> 10.99.0.1:28 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:54960 -> 10.99.0.1:29 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:33476 -> 10.99.0.1:30 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:51348 -> 10.99.0.1:31 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:40888 -> 10.99.0.1:32 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:33144 -> 10.99.0.1:33 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:41842 -> 10.99.0.1:34 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:55160 -> 10.99.0.1:36 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:51262 -> 10.99.0.1:37 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:33552 -> 10.99.0.1:38 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:56710 -> 10.99.0.1:35 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:40004 -> 10.99.0.1:39 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:38  DROP  TCP 10.99.0.2:48976 -> 10.99.0.1:40 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39490 -> 10.99.0.1:8 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:40004 -> 10.99.0.1:39 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39486 -> 10.99.0.1:9 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:51054 -> 10.99.0.1:5 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:43758 -> 10.99.0.1:3 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:51262 -> 10.99.0.1:37 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:35218 -> 10.99.0.1:1 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:33552 -> 10.99.0.1:38 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:55160 -> 10.99.0.1:36 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:33144 -> 10.99.0.1:33 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39288 -> 10.99.0.1:26 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:41842 -> 10.99.0.1:34 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:40888 -> 10.99.0.1:32 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:46738 -> 10.99.0.1:25 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:35290 -> 10.99.0.1:24 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:48976 -> 10.99.0.1:40 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:59486 -> 10.99.0.1:23 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39158 -> 10.99.0.1:12 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:34662 -> 10.99.0.1:7 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:51348 -> 10.99.0.1:31 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:55978 -> 10.99.0.1:4 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:33476 -> 10.99.0.1:30 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:54960 -> 10.99.0.1:29 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:44948 -> 10.99.0.1:28 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39798 -> 10.99.0.1:27 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:47482 -> 10.99.0.1:22 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:52086 -> 10.99.0.1:21 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:42520 -> 10.99.0.1:20 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:58848 -> 10.99.0.1:19 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:55590 -> 10.99.0.1:18 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:43940 -> 10.99.0.1:17 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:38690 -> 10.99.0.1:16 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:38194 -> 10.99.0.1:15 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:39210 -> 10.99.0.1:14 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:58788 -> 10.99.0.1:13 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:51586 -> 10.99.0.1:10 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:53430 -> 10.99.0.1:2 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:56710 -> 10.99.0.1:35 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:45230 -> 10.99.0.1:11 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:39  DROP  TCP 10.99.0.2:50536 -> 10.99.0.1:6 [S]  source banned by IDS: port scan (16 ports in 5s)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "the scanner is now banned - even the public web page is refused"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "curl -s -m 3 http://10.99.0.1/ || echo 'no response (timed out)'",
+     "output": "no response (timed out)",
+     "fw": [
+      "11:51:40  DROP  TCP 10.99.0.2:35566 -> 10.99.0.1:80 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:41  DROP  TCP 10.99.0.2:35566 -> 10.99.0.1:80 [S]  source banned by IDS: port scan (16 ports in 5s)",
+      "11:51:42  DROP  TCP 10.99.0.2:35566 -> 10.99.0.1:80 [S]  source banned by IDS: port scan (16 ports in 5s)"
+     ]
+    },
+    {
+     "type": "say",
+     "text": "SYN flood from the second address 10.99.0.3: 30 SYNs at once"
+    },
+    {
+     "type": "run",
+     "who": "attacker",
+     "cmd": "python3 demo/probe.py synflood 10.99.0.3 10.99.0.1 80 30",
+     "output": "sent 30 SYNs 10.99.0.3 -> 10.99.0.1:80 in 0.000s",
+     "fw": [
+      "11:51:44  ACCEPT TCP 10.99.0.3:20000 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20001 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20002 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20003 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20004 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20005 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20006 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20007 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20008 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20009 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20010 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20011 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20012 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20013 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20014 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20015 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20016 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20017 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20018 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  ACCEPT TCP 10.99.0.3:20019 -> 10.99.0.1:80 [S]  public web server",
+      "11:51:44  IDS ALERT SYN flood (21 SYNs in 1s) from 10.99.0.3 - banned for 60s",
+      "11:51:44  DROP  TCP 10.99.0.3:20020 -> 10.99.0.1:80 [S]  IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20021 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20022 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20023 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20024 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20025 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20026 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20027 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20028 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20029 -> 10.99.0.1:80 [S]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20000 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20001 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20002 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20003 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20004 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20005 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20006 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20007 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20008 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20009 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20010 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20011 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20012 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20013 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20014 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20015 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20016 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20017 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20018 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "11:51:44  DROP  TCP 10.99.0.3:20019 -> 10.99.0.1:80 [R]  source banned by IDS: SYN flood (21 SYNs in 1s)",
+      "(+ 20 packets accepted as part of established connections)"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "5/5  Stop PyWall",
+   "items": [
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "kill -INT %1   # Ctrl+C",
+     "output": "=== Firewall statistics ===\nAccepted: 120   Dropped: 122   Tracked connections: 24\nVerdict reasons:\n      82  established connection\n      67  source banned by IDS: port scan (16 ports in 5s)\n      29  source banned by IDS: SYN flood (21 SYNs in 1s)\n      21  public web server\n      15  default policy\n      14  ping, rate limited\n       3  allow all other outbound\n       2  drop SSH from elsewhere\n       2  block SMB / RDP / NetBIOS\n       2  block outbound telnet\n       2  rate limit exceeded (ping, rate limited)\n       1  invalid state (no matching connection)\n       1  IDS: port scan (16 ports in 5s)\n       1  IDS: SYN flood (21 SYNs in 1s)\nRule hits:\n       0  [1] ACCEPT allow loopback\n       2  [2] DROP   block outbound telnet\n       3  [3] ACCEPT allow all other outbound\n       0  [4] ACCEPT SSH only from the LAN\n       2  [5] DROP   drop SSH from elsewhere\n      21  [6] ACCEPT public web server\n       2  [7] DROP   block SMB / RDP / NetBIOS\n      16  [8] ACCEPT ping, rate limited\n       0  [9] ACCEPT ICMP destination unreachable\n       0  [10] ACCEPT ICMP time exceeded\nIDS alerts:\n  10.99.0.2: port scan (16 ports in 5s)\n  10.99.0.3: SYN flood (21 SYNs in 1s)",
+     "fw": []
+    },
+    {
+     "type": "run",
+     "who": "host",
+     "cmd": "iptables -S | grep -c NFQUEUE || echo 'no NFQUEUE hooks left'",
+     "output": "0\nno NFQUEUE hooks left",
+     "fw": []
+    }
+   ]
+  }
+ ]
+}

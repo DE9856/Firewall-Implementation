@@ -1,0 +1,130 @@
+{
+  "_comment": "PyWall rule set. Rules are checked top to bottom; the first match wins. $LAN means the local networks (override with --lan).",
+  "default_policy": "DROP",
+  "stateful": true,
+  "drop_invalid": true,
+  "local_networks": [
+    "192.168.1.0/24"
+  ],
+  "whitelist": [],
+  "blacklist": [
+    "185.220.101.0/24"
+  ],
+  "ids": {
+    "enabled": true,
+    "block_seconds": 60,
+    "syn_flood": {
+      "threshold": 20,
+      "window": 1
+    },
+    "port_scan": {
+      "threshold": 15,
+      "window": 5
+    },
+    "icmp_flood": {
+      "threshold": 10,
+      "window": 1
+    }
+  },
+  "rules": [
+    {
+      "id": 1,
+      "name": "allow loopback",
+      "action": "ACCEPT",
+      "src": "127.0.0.0/8"
+    },
+    {
+      "id": 2,
+      "name": "block outbound telnet",
+      "action": "DROP",
+      "direction": "out",
+      "protocol": "tcp",
+      "dst_port": 23,
+      "log": true
+    },
+    {
+      "id": 3,
+      "name": "allow all other outbound",
+      "action": "ACCEPT",
+      "direction": "out"
+    },
+    {
+      "id": 11,
+      "name": "DHCP replies",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "udp",
+      "src_port": 67,
+      "dst_port": 68
+    },
+    {
+      "id": 4,
+      "name": "SSH only from the LAN",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "tcp",
+      "dst_port": 22,
+      "src": "$LAN",
+      "log": true
+    },
+    {
+      "id": 5,
+      "name": "drop SSH from elsewhere",
+      "action": "DROP",
+      "direction": "in",
+      "protocol": "tcp",
+      "dst_port": 22,
+      "log": true
+    },
+    {
+      "id": 6,
+      "name": "public web server",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "tcp",
+      "dst_port": [
+        80,
+        443
+      ],
+      "enabled": true
+    },
+    {
+      "id": 7,
+      "name": "block SMB / RDP / NetBIOS",
+      "action": "DROP",
+      "direction": "in",
+      "protocol": "tcp",
+      "dst_port": [
+        445,
+        3389,
+        "135-139"
+      ],
+      "log": true
+    },
+    {
+      "id": 8,
+      "name": "ping, rate limited",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "icmp",
+      "icmp_type": 8,
+      "rate_limit": "5/s"
+    },
+    {
+      "id": 9,
+      "name": "ICMP destination unreachable",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "icmp",
+      "icmp_type": 3
+    },
+    {
+      "id": 10,
+      "name": "ICMP time exceeded",
+      "action": "ACCEPT",
+      "direction": "in",
+      "protocol": "icmp",
+      "icmp_type": 11
+    }
+  ]
+}

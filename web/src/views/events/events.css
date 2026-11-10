@@ -1,0 +1,56 @@
+.ev-row button {
+  width: 100%; display: grid; grid-template-columns: 62px 14px minmax(0, 1fr); gap: 10px; align-items: start; text-align: left;
+  padding: 9px 18px; background: none; border: 0; cursor: pointer; border-top: 1px solid var(--rule);
+  transition: background-color 150ms var(--ease-out);
+}
+.ev-row:first-child button { border-top: 0; }
+.ev-row button:hover { background: var(--raised); }
+.ev-row.active button { background: var(--raised); box-shadow: inset 1px 0 0 var(--select); }
+.ev-time { font-size: var(--fs-small); padding-top: 1px; }
+.ev-text { display: flex; flex-direction: column; min-width: 0; }
+.ev-title { font-weight: 500; }
+.ev-count { color: var(--muted); font-weight: 400; font-size: var(--fs-small); }
+.ev-detail { color: var(--muted); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ev-row.compact .ev-detail { -webkit-line-clamp: 1; }
+
+/* Severity marks: shape as well as colour. Diamond = attack detected, outline diamond = warning,
+   hatched square = held traffic, hollow circle = information. */
+.sev { width: 10px; height: 10px; margin-top: 4px; display: inline-block; box-sizing: border-box; flex: none; }
+.sev.critical { background: var(--warn); transform: rotate(45deg) scale(0.85); border-radius: 1px; }
+.sev.warning { border: 2px solid var(--warn); transform: rotate(45deg) scale(0.85); border-radius: 1px; }
+.sev.notice { border: 1.5px solid var(--block); border-radius: 2px; background: repeating-linear-gradient(135deg, var(--block) 0 2px, transparent 2px 4px); } /* taste-skill-ignore: 45-degree hatch encodes "held" without relying on colour (colour-blind safe) */
+.sev.info { border: 1.5px solid #6b6f76; border-radius: 50%; }
+
+.strip-cols { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 4px; padding: 4px 18px 14px; height: 120px; }
+.strip-col { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; min-width: 0; }
+.strip-col .mono { font-size: 11px; text-align: center; }
+.strip-stack { display: flex; flex-direction: column-reverse; gap: 1px; min-height: 0; border-radius: 2px; overflow: hidden; }
+.strip-col:not(:has(.st)) .strip-stack { height: 1px !important; background: var(--border); }
+.st { display: block; min-height: 2px; }
+.st.critical { background: var(--warn); }
+.st.warning { background: rgba(224, 164, 58, 0.45); }
+.st.notice { background: repeating-linear-gradient(135deg, var(--block) 0 2px, rgba(236,106,92,0.35) 2px 4px); } /* taste-skill-ignore: 45-degree hatch encodes "held" without relying on colour (colour-blind safe) */
+.st.info { background: #4a4e56; }
+.strip .key { display: inline-flex; align-items: center; gap: 6px; }
+.strip .key .sev { margin-top: 0; }
+
+.ev-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.ev-total { margin-left: auto; }
+.ev-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.ev-body.with-panel { grid-template-columns: minmax(0, 1fr) 400px; }
+.tl-group { display: grid; grid-template-columns: 64px minmax(0, 1fr); border-top: 1px solid var(--rule); }
+.tl-group:first-child { border-top: 0; }
+.tl-minute { font-size: 13px; font-weight: 500; padding: 10px 0 0 18px; color: var(--text); position: sticky; top: 0; align-self: start; }
+.timeline .ev-row button { grid-template-columns: 62px 14px minmax(0, 1fr); }
+.ev-panel { position: sticky; top: 22px; max-height: calc(100vh - 44px); overflow-y: auto; }
+.ev-panel .panel-head { align-items: flex-start; }
+.ev-panel .panel-head > .btn { margin-left: auto; }
+.ev-panel .sev { margin: 0 4px 0 0; vertical-align: -1px; }
+.ev-pad { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.ev-pad h3 { font-size: 13px; font-weight: 600; margin-top: 6px; }
+.ev-facts { margin: 0; display: grid; gap: 6px; width: 100%; }
+.ev-facts div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; font-size: var(--fs-small); }
+.ev-facts dt { color: var(--muted); } .ev-facts dd { margin: 0; }
+.ev-packets { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 1180px) { .ev-body.with-panel { grid-template-columns: minmax(0, 1fr); } .ev-panel { position: static; max-height: none; } }
+@media (max-width: 760px) { .strip-col .mono { display: none; } .strip-cols { height: 80px; } .strip .aside { display: none; } }

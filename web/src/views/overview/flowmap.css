@@ -1,0 +1,57 @@
+.flowmap { position: relative; width: 100%; overflow: hidden; }
+.flowmap svg { display: block; overflow: visible; }
+.flowmap .dots { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+.flowmap .idle path { fill: none; stroke: #2a2d31; stroke-width: 1; stroke-dasharray: 1 5; }
+.flowmap .frame rect { fill: var(--raised); }
+.flowmap .frame line { stroke: #2a2c30; stroke-width: 1; }
+.flowmap .frame { cursor: pointer; }
+
+.flowmap .rb { fill: none; cursor: pointer; transition: stroke-width 250ms var(--ease-out), opacity 150ms var(--ease-out); }
+.flowmap .rb.transit { stroke: var(--transit); opacity: 0.9; }
+.flowmap .rb.allow { stroke: var(--allow); opacity: 0.8; }
+.flowmap .rb.block { stroke: url(#held); opacity: 1; }
+.flowmap .rb.allow-dim { stroke: #24504a; opacity: 0.95; }
+.flowmap .rb.block-dim { stroke: #5a2f2b; opacity: 0.95; }
+.flowmap .ribbons:hover .rb { opacity: 0.55; }
+.flowmap .ribbons .rb:hover { opacity: 1; }
+
+.flowmap text { fill: var(--text); font-size: 13px; }
+.flowmap .mono { font-family: var(--mono); }
+.flowmap .lbl { font-weight: 500; }
+.flowmap .port { fill: var(--muted); font-weight: 400; }
+.flowmap .sub { fill: var(--muted); font-size: 12px; }
+.flowmap .held { fill: var(--block-ink); }
+.flowmap .note { fill: var(--muted); font-size: 12px; }
+.flowmap .col-head { fill: var(--muted); font-size: 12px; cursor: pointer; }
+.flowmap .col-head:hover, .flowmap .col-head.on { fill: var(--text); }
+.flowmap .col-head.on { text-decoration: underline; text-underline-offset: 4px; }
+
+.flowmap .node { cursor: pointer; }
+.flowmap .node rect:not(.hit) { fill: #6b6f76; transition: fill 150ms var(--ease-out); }
+.flowmap .node.svc rect:not(.hit) { fill: var(--allow); }
+.flowmap .node .hit, .flowmap .bin .hit { fill: transparent; }
+.flowmap .node:hover rect:not(.hit), .flowmap .node.on rect:not(.hit) { fill: var(--text); }
+.flowmap .node.on .lbl { text-decoration: underline; text-underline-offset: 4px; }
+.flowmap .node.dim { opacity: 0.45; }
+.flowmap .node:focus-visible, .flowmap .bin:focus-visible, .flowmap .col-head:focus-visible { outline: none; }
+.flowmap .node:focus-visible .lbl, .flowmap .bin:focus-visible .bin-count { text-decoration: underline; }
+
+.flowmap .bin { cursor: pointer; }
+.flowmap .bin-edge { fill: none; stroke: #3a3d42; stroke-width: 1.25; }
+.flowmap .bin:hover .bin-edge, .flowmap .bin.on .bin-edge { stroke: var(--text); }
+.flowmap .bin-count { font-family: var(--mono); font-size: 12px; fill: var(--faint); }
+.flowmap .bin-count.held { fill: var(--block-ink); }
+
+.flow-empty { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); color: var(--muted); background: var(--surface); padding: 8px 12px; border-radius: var(--radius); }
+.flow-tip {
+  position: absolute; z-index: 5; pointer-events: none; display: flex; flex-direction: column; gap: 2px; min-width: 200px;
+  padding: 8px 10px; border-radius: var(--radius); background: #26282c; box-shadow: var(--shadow-float); font-size: var(--fs-small);
+}
+.flow-tip b { font-weight: 600; font-size: 13px; }
+.flowmap [tabindex]:focus:not(:focus-visible) { outline: none; }
+.flowmap [tabindex]:focus-visible { outline: none; }
+.flowmap .cuts line { stroke: var(--raised); stroke-width: 2; pointer-events: none; }
+.flowmap .note { paint-order: stroke; stroke: var(--raised); stroke-width: 4px; stroke-linejoin: round; }
+@media (max-width: 760px) { .flowmap { overflow-x: auto; overflow-y: hidden; } }
+.flowmap .banned { fill: var(--warn-ink); }

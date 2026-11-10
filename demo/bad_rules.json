@@ -1,0 +1,7 @@
+{
+  "default_policy": "DROP",
+  "rules": [
+    {"name": "allow web",   "action": "ACCEPT", "protocol": "tcp", "dst_port": [80, 443]},
+    {"name": "typo'd rule", "action": "ACCEPT", "protocol": "tcp", "dst_port": 99999}
+  ]
+}

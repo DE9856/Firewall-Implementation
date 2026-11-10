@@ -1,0 +1,16 @@
+# Render blueprint for the public PyWall demo.
+# The demo runs the real engine on simulated traffic in read-only mode.
+# Live filtering needs root and the kernel's netfilter, so it cannot run on a hosting platform.
+services:
+  - type: web
+    name: pywall-demo
+    runtime: python
+    plan: free
+    # Nothing to install: the server uses only the Python standard library and the
+    # dashboard is already built into firewall/web/. (requirements.txt is for live mode only.)
+    buildCommand: python3 pywall.py check
+    startCommand: python3 pywall.py serve --host 0.0.0.0 --read-only
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7

@@ -1,0 +1,118 @@
+{
+  "title": "Choose the visual world for the PyWall console",
+  "question": "The roll assigned Sorting Office. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Sorting Office",
+      "kicker": "THE ROLL",
+      "lineage": "Postal sorting offices: routing labels, sorting frames, cancellation postmarks",
+      "thesis": "Every packet is addressed mail: read at the frame, then forwarded or held in the bin of the stage that stopped it.",
+      "palette": ["#141517", "#1f2124", "#3fb8a9", "#ec6a5c", "#e0a43a", "#cfc6b6"],
+      "materials": ["address labels (mono IPs)", "sorting-frame pigeonholes", "postmark rings for verdicts"],
+      "viewport": "Icon rail; a figure strip; the flow map with sources left, the sorting frame of pipeline stages centre, held-mail bins under each stage, destinations right; recent events beside it.",
+      "risk": "Postal language can slide into costume; it is held to labels, bins and verdict marks only.",
+      "raised": [
+        {"from": "challenger-exposure", "raise": "Dropped streams carry a hatch as well as coral, so allowed vs blocked never relies on colour alone."},
+        {"from": "challenger-zoo-map", "raise": "One path geometry per stream drives its ribbon, its hit area and its selection highlight."},
+        {"from": "challenger-monochrome", "raise": "Every figure opens the packets behind it: no number without its evidence."},
+        {"from": "challenger-timetable", "raise": "Four type sizes only; rank carried by weight and ink, not size."}
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Flow Cartography",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Minard's 1869 flow map and engineering Sankey diagrams",
+      "thesis": "Traffic drawn as rivers whose width is packet count; the firewall is the delta where they split.",
+      "palette": ["#111214", "#1a1c1f", "#46c2b4", "#f06b5d", "#e3a63c", "#8b9096"],
+      "materials": ["river ribbons", "survey-map hairlines", "cartographic labels"],
+      "viewport": "Icon rail; the flow map owns two-thirds of the screen edge to edge, figures set as map annotations along it, events in a narrow right column.",
+      "risk": "Closest to your reference screenshot and the direction most runs in this category land on.",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-exposure", "kind": "challenger", "catalogId": "operate-b-exposure-record-zone-sheets",
+      "label": "Exposure Record", "verdict": "declined",
+      "lineage": "darkroom printer's exposure record cards",
+      "thesis": "Load as hatch density over an eleven-step zone ramp.",
+      "palette": ["#0e0e0f", "#6d6d70", "#d9d9db", "#c0398a"], "materials": ["zone ramp", "tracing-paper hatching"],
+      "viewport": "Overlapping translucent sheets over a zone wedge.",
+      "case": "Fuses poorly: a classroom does not recognise darkroom records, and sheets obscure the pipeline.",
+      "risk": "Magenta filtration colour fights the pinned teal/coral meaning.",
+      "kept": "Conflict and state readable without colour (hatching)."
+    },
+    {
+      "id": "challenger-saville", "kind": "challenger", "catalogId": "brand-identity-canon-saville-catalog-sleeve",
+      "label": "Catalog Sleeve", "verdict": "declined",
+      "lineage": "Factory Records catalog sleeves",
+      "thesis": "Traffic as a pulsar plot on matte black, names coded in colour.",
+      "palette": ["#0b0b0b", "#f2f2f2", "#d24b3a", "#2f7fbf"], "materials": ["white line plot", "colour-code strips"],
+      "viewport": "One stacked-line plot owning the field, a catalog number as headline.",
+      "case": "Fuses poorly: coded names defeat the teaching goal of explaining every verdict.",
+      "risk": "Unreadable for a learner by design.",
+      "kept": "Nothing is labelled twice."
+    },
+    {
+      "id": "challenger-timetable", "kind": "challenger", "catalogId": "rw-timetable-slide-rack",
+      "label": "Timetable Rack", "verdict": "declined",
+      "lineage": "1970s pocket airline timetables",
+      "thesis": "One type size; rank by weight, case and reversal.",
+      "palette": ["#d9a520", "#2b2b2b", "#e9e2cc", "#c8352a"], "materials": ["tinted glass slides", "goldenrod bed"],
+      "viewport": "A raked rack of slides travelled sideways.",
+      "case": "Fuses poorly: raked containers and lateral travel break a monitoring layout.",
+      "risk": "Goldenrod ground contradicts the pinned charcoal.",
+      "kept": "Rank by weight and ink at very few sizes."
+    },
+    {
+      "id": "challenger-monochrome", "kind": "challenger", "catalogId": "digital-design-canon-monochrome-product-marketing",
+      "label": "Monochrome Proof", "verdict": "declined",
+      "lineage": "monochrome software marketing",
+      "thesis": "Every claim paired with the interface detail that proves it.",
+      "palette": ["#fafafa", "#111111", "#2f6fed"], "materials": ["neutral scale", "framed screenshots"],
+      "viewport": "Alternating claim and proof sections.",
+      "case": "Fuses poorly: a marketing page structure, not a working console.",
+      "risk": "Reads as a landing page.",
+      "kept": "No figure without its evidence."
+    },
+    {
+      "id": "challenger-acetate", "kind": "challenger", "catalogId": "rw-manual-acetate-tab-board",
+      "label": "Acetate Manual", "verdict": "declined",
+      "lineage": "boxed-software reference manuals",
+      "thesis": "Sections as hued divider boards under acetate leaves.",
+      "palette": ["#e2a10f", "#f0efe8", "#1d5fbf", "#e0442b"], "materials": ["milk acetate", "tab rail"],
+      "viewport": "A stepped tab rail down the fore edge.",
+      "case": "Fuses poorly: a hue per section breaks colour-means-state.",
+      "risk": "Full-strength section hues collide with verdict colours.",
+      "kept": "Stepped, instant state changes without decorative easing."
+    },
+    {
+      "id": "challenger-zoo-map", "kind": "challenger", "catalogId": "aww2-zoo-gardens-guide-map",
+      "label": "Guide Map", "verdict": "declined",
+      "lineage": "zoo and gardens guide maps",
+      "thesis": "Areas as swelling lobes of flat colour divided by coastline.",
+      "palette": ["#f5f1e4", "#8ed462", "#ff705d", "#2ba0ff"], "materials": ["flat lobes", "capsule labels"],
+      "viewport": "One lobe dominating each screen.",
+      "case": "Fuses poorly: cream ground and playful capsules contradict the brief.",
+      "risk": "Toy-like for a security tool.",
+      "kept": "One geometry drives layout, hit area and state."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code"},
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "The category standard",
+    "thesis": "A security operations dashboard as the category ships it, executed impeccably.",
+    "palette": ["#0f1115", "#1a1d23", "#2dd4bf", "#f87171", "#fbbf24"],
+    "materials": ["KPI strip", "time-series chart", "alerts table"],
+    "viewport": "Sidebar, KPI strip, traffic chart with the flow view below, alerts table.",
+    "risk": "Indistinguishable from the competition by design.",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

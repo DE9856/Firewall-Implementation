@@ -1,0 +1,53 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-11-10T07:18:50.370Z",
+        "reason": "decision-page sketch of the category standard; Inter is the point of that card, not shipping UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-11-10T07:18:50.378Z",
+        "reason": "throwaway 1440x900 decision sketch; the shipping UI in web/src replaced it"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-11-10T07:35:16.493Z",
+        "reason": "direction-round decision sketch, not shipping UI; written before DESIGN.md existed"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-11-10T07:35:16.502Z",
+        "reason": "direction-round decision sketch, not shipping UI; written before DESIGN.md existed"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-11-10T07:35:16.510Z",
+        "reason": "direction-round decision sketch, not shipping UI; written before DESIGN.md existed"
+      }
+    ]
+  }
+}

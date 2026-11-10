@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------------------------------------------------------------- Dashboard (web/)
+# Dependencies and build caches. The BUILT dashboard in firewall/web/ is committed on
+# purpose: the Python server serves it, so running PyWall (and the Render deploy)
+# needs no Node.js.
+web/node_modules/
+web/*.tsbuildinfo
+web/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# ---------------------------------------------------------------- PyWall runtime output
+# Logs and captures you make while running it (pywall.py --log FILE, tcpdump -w FILE).
+# The recorded demo files in demo/ are kept.
+*.log
+!demo/live_firewall.log
+*.pcap
+*.pcapng
+!demo/sample.pcap
+capture*.pcap
+
+# ---------------------------------------------------------------- Design tooling state
+# Caches and scratch state from the design tools. The decisions themselves
+# (DESIGN.md, PRODUCT.md, .impeccable/design.json, .impeccable/surfaces/,
+# .impeccable/config.json) are kept.
+.impeccable/hook.cache.json
+.impeccable/tmp/
+.impeccable/questions/
+.impeccable/review/
+.impeccable/live/
+.impeccable/config.local.json
+.taste-skill/
+
+# ---------------------------------------------------------------- Secrets
+.env
+.env.*
+
+# ---------------------------------------------------------------- Editors and OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
