@@ -46,7 +46,7 @@ export function Rules() {
   return (
     <>
       <PageHeader title="Firewall rules"
-        finding={`${enabled} of ${rules.length} rules active, checked from the top; the first match decides. Anything unmatched gets ${config?.defaultPolicy === "ACCEPT" ? "allowed" : "dropped"}.${readOnly ? " This public demo is read-only: inspect and test rules, but they can't be changed." : ""}`}>
+        finding={`${enabled} of ${rules.length} rules active, checked from the top; the first match decides. Anything unmatched gets ${config?.defaultPolicy === "ACCEPT" ? "allowed" : "blocked"}.${readOnly ? " This public demo is read-only: inspect and test rules, but they can't be changed." : ""}`}>
         <button className="btn" onClick={() => setParams({ test: 1, edit: "", rule: "" })}>Test a packet</button>
         {!readOnly && <button className="btn primary" onClick={() => setParams({ edit: "new", test: "", rule: "" })}><Icon name="plus" size={14} />New rule</button>}
       </PageHeader>

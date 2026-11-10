@@ -4,7 +4,11 @@
 
 PyWall receives every IPv4 packet entering or leaving a machine and decides, packet by packet, whether to let it through. It does this through Linux's own netfilter framework, so the decisions are real. It tracks connections, enforces an ordered rule table, rate-limits traffic, and detects and bans port scans, SYN floods and ping floods. The dashboard draws the traffic flowing through the firewall's pipeline. You can click any packet to see exactly which stage and which rule decided it, and why.
 
-Built as a Computer Networks course project ("Firewall implementation: create a firewall to filter packets and enhance network security").
+**Live demo: [pywall-demo.onrender.com](https://pywall-demo.onrender.com/)** (read-only, simulated traffic) · **Code: [github.com/DE9856/Firewall-Implementation](https://github.com/DE9856/Firewall-Implementation)** · **Project report: [docs/Firewall-Implementation-Report.pdf](docs/Firewall-Implementation-Report.pdf)**
+
+Built by Deepesh Kumar Kotta as a Computer Networks course project ("Firewall implementation: create a firewall to filter packets and enhance network security").
+
+> The demo is on Render's free plan, so it sleeps when nobody is using it. The first visit after a quiet spell takes about a minute to wake it up.
 
 ![PyWall overview: traffic from sources flows through the pipeline stages; dropped traffic falls into the bin of the stage that stopped it](docs/screenshots/overview.png)
 
@@ -68,6 +72,11 @@ A **stateful** firewall also keeps a visitor book of open **connections**. When 
 - **Live traffic** packet list and inspector, with the pipeline trace, rule conditions, header fields and hex bytes.
 - **Firewall rules**: a plain-language rule table with live editing and a packet tester.
 - **Analytics** and **Security events** timelines.
+- Built for people new to firewalls: a first-visit guide, plain-language labels and hover explanations.
+- **Slow motion and packet journeys**:
+  - slow the animation down to ⅒ speed
+  - show only blocked packets, each tagged with why it is being stopped
+  - follow one real blocked packet as it pauses at every stage, while a panel explains what each stage found
 
 **For real networks**
 
@@ -131,17 +140,19 @@ Open **http://127.0.0.1:8080**. The badge in the top-right corner always says wh
 
 | Section | What you can do |
 | --- | --- |
-| **Overview** | Watch the flow map: sources on the left; PyWall's pipeline in the middle, one column per stage; destinations (services) on the right. Dropped traffic turns down into the **bin of the stage that stopped it**, and each moving dot is one real packet. Click a source, stream, stage or bin to filter the map to that traffic; the right-hand panel explains it and links to its packets. |
+| **Overview** | Watch the flow map: computers sending traffic on the left; PyWall's pipeline in the middle, one column per stage; destinations (services) on the right. Blocked traffic turns down into the **bin of the stage that stopped it**, and each moving dot is one real packet. Click a source, stream, stage or bin to filter the map to that traffic; the right-hand panel explains it and links to its packets. Use **Speed** (Normal to ⅒×) and **Show: Blocked only** to slow things down, or **Watch a blocked packet** to follow a single packet stage by stage (**Back to all traffic** or Esc returns). |
 | **Live traffic** | A Wireshark-style list of every decided packet, with search, filters (verdict, protocol, direction) and pause. Click a packet to open the **inspector**: the verdict, each pipeline stage it passed, why the matching rule matched (condition by condition), every header field with a plain-language note, and the raw bytes, highlighted as you hover a field. |
 | **Firewall rules** | The rule table in evaluation order, each rule as a plain-English sentence, with hit counts. Enable or disable, reorder, create, edit and delete rules: changes are validated, applied immediately and saved to `config/rules.json`. **Test a packet** shows which rule a made-up packet would hit and why every other rule did not match. |
 | **Analytics** | Allowed vs dropped over time, inbound vs outbound, protocols, top sources and destinations, rules matched, and where packets were dropped, over 1, 5 or 15 minutes. |
 | **Security events** | A timeline of IDS detections, bans, rate limits, dropped traffic and rule changes, each linked to the packets behind it. |
 | **Settings** | Connection status, the running configuration, IDS thresholds and active bans. |
 
-**Colour codes:** teal means allowed, coral with a diagonal hatch means dropped, and amber means an IDS detection or rate limit. Every colour also has a shape, so the screen works for colour-blind viewers. Motion follows your system's reduced-motion setting.
+**Colour codes:** teal means allowed, coral with a diagonal hatch means blocked, and amber means an IDS detection or rate limit. Every colour also has a shape, so the screen works for colour-blind viewers. Motion follows your system's reduced-motion setting.
 
-| Live traffic and the inspector | Rules and the packet tester |
+| First visit: what you're looking at | Following one blocked packet |
 | --- | --- |
+| ![Welcome panel](docs/screenshots/welcome.png) | ![Packet journey](docs/screenshots/journey.png) |
+| **Live traffic and the inspector** | **Rules and the packet tester** |
 | ![Packet inspector](docs/screenshots/live-traffic.png) | ![Rule table](docs/screenshots/rules.png) |
 | **Analytics** | **Security events** |
 | ![Analytics](docs/screenshots/analytics.png) | ![Security events](docs/screenshots/events.png) |
@@ -271,7 +282,7 @@ Live filtering cannot run on hosting platforms such as Render, Vercel or Heroku:
 
 1. Push this repository to GitHub.
 2. On [Render](https://render.com): **New > Blueprint**, then pick the repository. Render creates the `pywall-demo` service from `render.yaml`.
-3. Open the `onrender.com` URL.
+3. Open the `onrender.com` URL. This project's demo runs at **https://pywall-demo.onrender.com/**.
 
 The same thing locally:
 
@@ -367,7 +378,7 @@ firewall/
 web/                    dashboard source: React + TypeScript + Vite
 tests/                  unit tests
 demo/                   private test network, probes, live checker, recorder, videos
-docs/screenshots/       images used in this README
+docs/                   project report (PDF) and the screenshots used in this README
 render.yaml             Render blueprint for the public demo
 DESIGN.md, PRODUCT.md   the dashboard's design system and product notes
 ```

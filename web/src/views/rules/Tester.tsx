@@ -55,7 +55,7 @@ export function Tester({ onMatch, onClose }: { onMatch: (id: number | null) => v
       {error && <div className="error-box" role="alert">{error}</div>}
       {res && (
         <div className="test-result">
-          <p className={`verdict ${res.verdict === "ACCEPT" ? "allow" : "block"} big`}>{res.verdict === "ACCEPT" ? "Would be allowed" : "Would be dropped"}</p>
+          <p className={`verdict ${res.verdict === "ACCEPT" ? "allow" : "block"} big`}>{res.verdict === "ACCEPT" ? "Would be allowed" : "Would be blocked"}</p>
           <p className="small">Decided at the <b>{STAGE_IN_TEXT[res.stage]}</b>: {res.detail}.</p>
           {res.rules.length > 0 && (
             <>
