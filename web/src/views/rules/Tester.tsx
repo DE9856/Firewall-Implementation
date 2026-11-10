@@ -33,22 +33,22 @@ export function Tester({ onMatch, onClose }: { onMatch: (id: number | null) => v
         <h2>Test a packet</h2>
         <button className="btn ghost small" onClick={onClose} aria-label="Close tester"><Icon name="close" size={14} /></button>
       </div>
-      <p className="ru-pad muted small">Describe a packet and see what PyWall would do with it right now. Nothing is sent and no counters change.</p>
+      <p className="ru-pad muted small">Describe a packet and see what PyWall would do with it right now. Nothing is sent and no counters change. IPv4 and IPv6 addresses both work.</p>
       <form className="ru-form" onSubmit={run}>
         <div className="two">
           <label><span>Direction</span><select className="input" value={f.dir} onChange={set("dir")}><option value="in">Inbound</option><option value="out">Outbound</option></select></label>
-          <label><span>Protocol</span><select className="input" value={f.proto} onChange={set("proto")}><option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option></select></label>
+          <label><span>Protocol</span><select className="input" value={f.proto} onChange={set("proto")}><option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option><option value="icmpv6">ICMPv6</option></select></label>
         </div>
         <div className="two">
           <label><span>Source</span><input className="input mono" value={f.src} onChange={set("src")} /></label>
           <label><span>Destination</span><input className="input mono" value={f.dst} onChange={set("dst")} /></label>
         </div>
-        {f.proto !== "icmp" ? (
+        {f.proto !== "icmp" && f.proto !== "icmpv6" ? (
           <div className="two">
             <label><span>Source port</span><input className="input mono" value={f.sport} onChange={set("sport")} inputMode="numeric" /></label>
             <label><span>Destination port</span><input className="input mono" value={f.dport} onChange={set("dport")} inputMode="numeric" /></label>
           </div>
-        ) : <label><span>ICMP type</span><input className="input mono" value={f.icmpType} onChange={set("icmpType")} inputMode="numeric" /></label>}
+        ) : <label><span>{f.proto === "icmpv6" ? "ICMPv6 type (8 = echo request is translated to 128)" : "ICMP type"}</span><input className="input mono" value={f.icmpType} onChange={set("icmpType")} inputMode="numeric" /></label>}
         {f.proto === "tcp" && <label><span>TCP flags</span><input className="input mono" value={f.flags} onChange={set("flags")} placeholder="S = SYN, A = ACK, F, R, P, U" /></label>}
         <div className="ru-actions"><button className="btn primary" type="submit">Check packet</button></div>
       </form>
@@ -64,7 +64,7 @@ export function Tester({ onMatch, onClose }: { onMatch: (id: number | null) => v
                 {res.rules.map((r) => (
                   <li key={r.id} className={r.matched ? "hit" : ""}>
                     <div className="checked-head"><span className="mono faint">#{r.id}</span> {r.name}
-                      <span className="checked-out">{!r.enabled ? "disabled, skipped" : r.matched ? `matched: ${r.action === "ACCEPT" ? "allow" : "drop"}` : "no match"}</span></div>
+                      <span className="checked-out">{!r.enabled ? "disabled, skipped" : r.matched ? `matched: ${r.action.toLowerCase().replace("accept", "allow")}` : "no match"}</span></div>
                     {r.enabled && r.conditions.length > 0 && (
                       <ul>{r.conditions.map((c) => (
                         <li key={c.field} className={c.ok ? "ok" : "no"}>{c.field}: rule wants <span className="mono">{String(c.rule)}</span>, packet has <span className="mono">{c.packet ?? "none"}</span></li>

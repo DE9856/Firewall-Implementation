@@ -2,6 +2,7 @@
 const PATHS: Record<string, JSX.Element> = {
   overview: (<><path d="M2 4.5c3.5 0 4 4.5 7 4.5M2 13.5c3.5 0 4-4.5 7-4.5" /><path d="M9 9h7" /><rect x="7.5" y="6.5" width="3" height="5" rx="1" /></>),
   traffic: (<><path d="M3 4.5h12M3 9h12M3 13.5h12" /><path d="M1.5 4.5h0M1.5 9h0M1.5 13.5h0" /></>),
+  connections: (<><circle cx="3.5" cy="9" r="2" /><circle cx="14.5" cy="9" r="2" /><path d="M5.5 7.5h7M10.5 5.5l2 2M12.5 10.5h-7M7.5 12.5l-2-2" /></>),
   rules: (<><path d="M9 2l6 2.5V9c0 3.5-2.6 6-6 7-3.4-1-6-3.5-6-7V4.5L9 2z" /><path d="M6.5 9h5M6.5 11.5h3" /></>),
   analytics: (<><path d="M3 15V9M7.5 15V4M12 15v-7M16 15v-4" /></>),
   events: (<><path d="M4 3v12M4 5h9l-1.5 2.5L13 10H4" /></>),
@@ -15,6 +16,8 @@ const PATHS: Record<string, JSX.Element> = {
   search: (<><circle cx="8" cy="8" r="4.5" /><path d="M11.5 11.5L15 15" /></>),
   arrow: (<><path d="M3.5 9h11M10 4.5L14.5 9 10 13.5" /></>),
   edit: (<><path d="M3 15l1-3.5L12 3.5l2.5 2.5-8 8L3 15z" /></>),
+  download: (<><path d="M9 3v8M5.5 7.5L9 11l3.5-3.5M3.5 14.5h11" /></>),
+  bolt: (<><path d="M10 2L4 10h4.5L8 16l6-8H9.5L10 2z" /></>),
   trash: (<><path d="M3.5 5h11M7 5V3.5h4V5M5 5l.8 9.5h6.4L13 5" /></>),
 };
 

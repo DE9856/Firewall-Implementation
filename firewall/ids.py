@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 
-from .packet import ACK, PROTO_ICMP, PROTO_TCP, SYN, Packet
+from .packet import ACK, PROTO_TCP, SYN, Packet
 
 DEFAULTS = {
     "enabled": True,
@@ -45,6 +45,30 @@ class IntrusionDetector:
         self.blocked: dict[str, tuple[float, str]] = {}   # ip -> (until, reason)
         self.alerts: list[tuple[float, str, str]] = []
 
+    def configure(self, cfg: dict) -> None:
+        """Apply new settings (same keys as the config file's "ids" section) at once.
+        Counters and current bans are kept; a new window applies from the next packet."""
+        if "enabled" in cfg:
+            self.enabled = bool(cfg["enabled"])
+        if "block_seconds" in cfg:
+            self.block_seconds = cfg["block_seconds"]
+        for key, attr, counter in (("syn_flood", "syn_cfg", self.syn), ("port_scan", "scan_cfg", self.scan),
+                                   ("icmp_flood", "icmp_cfg", self.icmp)):
+            if key in cfg:
+                setattr(self, attr, {**getattr(self, attr), **cfg[key]})
+                counter.window = getattr(self, attr)["window"]
+
+    def settings(self) -> dict:
+        """Current settings in the config file's shape."""
+        return {"enabled": self.enabled, "block_seconds": self.block_seconds, "syn_flood": dict(self.syn_cfg),
+                "port_scan": dict(self.scan_cfg), "icmp_flood": dict(self.icmp_cfg)}
+
+    def ban(self, ip: str, now: float, seconds: float, reason: str) -> None:
+        self.blocked[ip] = (now + seconds, reason)
+
+    def unban(self, ip: str) -> bool:
+        return self.blocked.pop(ip, None) is not None
+
     def is_blocked(self, ip: str, now: float) -> str | None:
         entry = self.blocked.get(ip)
         if not entry:
@@ -68,7 +92,7 @@ class IntrusionDetector:
             ports = {v for _, v in self.scan.add(src, now, pkt.dst_port)}
             if reason is None and len(ports) > self.scan_cfg["threshold"]:
                 reason = f"port scan ({len(ports)} ports in {self.scan_cfg['window']}s)"
-        elif pkt.protocol == PROTO_ICMP and pkt.icmp_type == 8:
+        elif pkt.is_echo_request:
             q = self.icmp.add(src, now)
             if len(q) > self.icmp_cfg["threshold"]:
                 reason = f"ICMP flood ({len(q)} pings in {self.icmp_cfg['window']}s)"

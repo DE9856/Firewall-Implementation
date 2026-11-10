@@ -109,3 +109,11 @@
 .j-result { margin: 12px 18px 0; font-size: 13px; }
 .j-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px 8px; }
 .j-foot { padding: 0 18px 16px; }
+
+/* simulated traffic: launch an attack on demand */
+.attackbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 18px 10px; }
+.attackbar .seg-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-small); margin-right: 4px; }
+.attack-status { flex: 1 1 280px; min-width: 0; color: var(--muted); }
+.attack-status b { color: var(--text); font-weight: 600; }
+.attack-status .link { font-size: inherit; }
+.block-ink { color: var(--block-ink); }

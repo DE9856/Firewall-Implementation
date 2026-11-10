@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, useStore } from "../../api/store";
-import type { FlowRec, SeriesPoint } from "../../api/types";
+import type { Attack, FlowRec, SeriesPoint } from "../../api/types";
+import { Icon } from "../../components/Icon";
 import { PageHeader } from "../../components/Shell";
 import { EventRow } from "../events/EventRow";
 import { fmt, STAGE_EXPLAIN, STAGE_IN_TEXT } from "../../lib/format";
@@ -118,6 +119,9 @@ export function Overview() {
 
   const recent = useMemo(() => events.filter((e) => e.kind !== "system").slice(-6).reverse(), [events]);
   const bans = config?.bans ?? [];
+  const [attacker, setAttacker] = useState<string | null>(null);
+  const banKey = bans.map((b) => b.src).join(",");
+  const pinned = useMemo(() => [...new Set([...(attacker ? [attacker] : []), ...bans.map((b) => b.src)])], [attacker, banKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const held = stats ? stats.dropped : 0;
 
   return (
@@ -132,7 +136,7 @@ export function Overview() {
         <Figure label="Allowed" value={stats?.accepted} tone="allow" to={href("traffic", { verdict: "ACCEPT" })} />
         <Figure label="Blocked" value={stats ? held : undefined} tone="block" to={href("traffic", { verdict: "DROP" })} />
         <Figure label="Speed" value={stats?.rate} unit="packets/s" to={href("analytics")} decimals />
-        <Figure label="Open connections" value={stats?.connections} to={href("traffic", { stage: "conntrack" })} />
+        <Figure label="Open connections" value={stats?.connections} to={href("connections")} />
         <Figure label="Active rules" value={stats?.rules} unit={stats && stats.rulesTotal !== stats.rules ? `of ${stats.rulesTotal}` : undefined} to={href("rules")} />
         <Figure label="Banned attackers" value={stats?.bans} tone={stats?.bans ? "warn" : undefined} to={href("events", { kind: "ids" })} />
       </section>
@@ -174,11 +178,12 @@ export function Overview() {
             </div>
             <span className="faint small playbar-note">Slows the animation only; traffic is still decided in real time.</span>
           </div>
+          {source?.kind === "simulated" && !journey && <AttackBar onLaunch={setAttacker} onFollow={(src) => setSelection({ type: "source", id: src })} />}
           {jError && !journey && <div className="error-box" role="status">{jError}</div>}
           {error && <div className="error-box">Couldn't load the 5-minute history ({error}). Showing the last minute. <button className="link" onClick={() => setWin(60)}>Switch to 1 min</button></div>}
           {!stats && conn !== "offline" ? <div className="map-loading" style={{ height }} aria-busy="true" /> :
             <FlowMap flows={flows} selection={journey ? null : selection} onSelect={setSelection} animate={(animate && conn === "live") || !!journey} height={height}
-              speed={speed} onlyBlocked={onlyBlocked} journey={journey}
+              speed={speed} onlyBlocked={onlyBlocked} journey={journey} pinned={pinned}
               onJourneyStep={(step, done, onMap) => setJStep({ step, done, onMap })}
               parseHeld={series.filter((p) => p.t >= lastUpdate - win).reduce((a, p) => a + (p["stage:parse"] ?? 0), 0)} />}
           <footer className="map-legend">
@@ -221,6 +226,49 @@ export function Overview() {
         </aside>
       </div>
     </>
+  );
+}
+
+const ATTACKS: [string, string, string][] = [
+  ["port_scan", "Port scan", "probes 30 ports in about a second"],
+  ["syn_flood", "SYN flood", "40 connection requests in half a second"],
+  ["ping_flood", "Ping flood", "30 pings in half a second"],
+  ["spoofed", "Spoofed replies", "replies to connections that never existed"],
+];
+
+/** Simulated traffic only: start an attack now and follow it until the IDS reacts. */
+function AttackBar({ onFollow, onLaunch }: { onFollow: (src: string) => void; onLaunch: (src: string) => void }) {
+  const [last, setLast] = useState<(Attack & { at: number }) | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const ban = useStore((s) => (last ? s.config?.bans.find((b) => b.src === last.src) : undefined));
+  const dropped = useStore((s) => (last ? s.held.filter((p) => p.src === last.src && p.t >= last.at - 1).length : 0));
+  const offset = useStore((s) => s.serverOffset);
+
+  const launch = async (kind: string) => {
+    setBusy(true); setError(null);
+    try { const r = await api.attack(kind); setLast({ ...r, at: Date.now() / 1000 + offset }); onLaunch(r.src); }
+    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
+  const name = last ? ATTACKS.find((a) => a[0] === last.kind)?.[1] ?? last.kind : "";
+  const outcome = !last ? null : ban ? `Detected and banned: ${ban.reason}. Its packets now stop at the ban list for ${Math.round(ban.remaining)} s.`
+    : last.kind === "spoofed" ? `${dropped} of ${last.packets} dropped at connection tracking: they claim to belong to connections PyWall never saw.`
+      : dropped ? `${dropped} of ${last.packets} packets blocked so far…` : "Sending…";
+
+  return (
+    <div className="attackbar" role="group" aria-label="Launch a simulated attack">
+      <span className="seg-label"><Icon name="bolt" size={14} />Try an attack</span>
+      {ATTACKS.map(([k, label, what]) => (
+        <button key={k} className="btn small" disabled={busy} onClick={() => launch(k)} title={what}>{label}</button>
+      ))}
+      <span className="attack-status small" role="status" aria-live="polite">
+        {error ? <span className="block-ink">{error}</span> : last ? (
+          <>
+            <b>{name}</b> from <button className="link mono" onClick={() => onFollow(last.src)}>{last.src}</button>. {outcome}
+          </>
+        ) : <span className="faint">Each sends real packets from a new address through the firewall. Watch where they stop.</span>}
+      </span>
+    </div>
   );
 }
 

@@ -22,7 +22,9 @@ npm-debug.log*
 yarn-error.log*
 
 # ---------------------------------------------------------------- PyWall runtime output
-# Logs and captures you make while running it (pywall.py --log FILE, tcpdump -w FILE).
+# Logs, captures and session history you make while running it (pywall.py --log FILE,
+# tcpdump -w FILE, data/history.sqlite).
+data/
 # The recorded demo files in demo/ are kept.
 *.log
 !demo/live_firewall.log

@@ -8,6 +8,7 @@ import "./shell.css";
 const NAV: { id: Section; label: string; short: string }[] = [
   { id: "overview", label: "Overview", short: "Overview" },
   { id: "traffic", label: "Live traffic", short: "Traffic" },
+  { id: "connections", label: "Connections", short: "Conns" },
   { id: "rules", label: "Firewall rules", short: "Rules" },
   { id: "analytics", label: "Analytics", short: "Analytics" },
   { id: "events", label: "Security events", short: "Events" },

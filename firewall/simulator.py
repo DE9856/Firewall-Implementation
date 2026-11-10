@@ -18,6 +18,10 @@ STRANGER = "45.33.32.156"
 ATTACKER = "203.0.113.66"
 FLOODER = "198.51.100.77"
 BAD = "185.220.101.5"        # on the blacklist
+HOST6 = "2001:db8:1::10"     # the same machine's IPv6 address
+LAN6 = "2001:db8:1::25"
+WEB6 = "2001:db8:cafe::443"
+STRANGER6 = "2001:db8:beef::7"
 
 
 @dataclass
@@ -94,6 +98,17 @@ def scenarios() -> list[Step]:
 
     sc = "11. Malformed packet"
     add(Step(sc, b"\x45\x00\x00", "in", "DROP"))
+
+    sc = "12. IPv6: the same rules, the same state tracking"
+    add(Step(sc, build_tcp(HOST6, WEB6, 52000, 443, SYN), "out", "ACCEPT"))
+    add(Step(sc, build_tcp(WEB6, HOST6, 443, 52000, SYN | ACK), "in", "ACCEPT"))
+    add(Step(sc, build_tcp(LAN6, HOST6, 41000, 22, SYN), "in", "ACCEPT"))
+    add(Step(sc, build_tcp(STRANGER6, HOST6, 41001, 22, SYN), "in", "DROP"))
+    add(Step(sc, build_icmp(STRANGER6, HOST6, 128), "in", "ACCEPT"))
+    add(Step(sc, build_icmp(STRANGER6, HOST6, 129), "in", "DROP"))
+
+    sc = "13. REJECT: telnet out is refused with a TCP RST"
+    add(Step(sc, build_tcp(HOST, STRANGER, 51002, 23, SYN), "out", "DROP"))
     return s
 
 
@@ -113,6 +128,8 @@ def run_simulation(fw: Firewall, clock: VirtualClock, verbose: bool = False) -> 
             summary = d.packet.summary() if d.packet else "<malformed bytes>"
             mark = paint("ok  ", "green") if ok else paint("FAIL", "bold", "red")
             reason = paint(d.reason, "yellow") if "IDS" in d.reason else d.reason
+            if d.reject:
+                reason += paint(f"  -> sent a {d.reject} back", "grey")
             print(f"  {mark} {step.direction:>3} {summary:<58} {paint.verdict(d.verdict)} {reason}")
     result = f"Simulation: {passed} passed, {failed} failed ({passed + failed} packets)"
     print("\n" + paint(result, "bold", "green" if failed == 0 else "red"))

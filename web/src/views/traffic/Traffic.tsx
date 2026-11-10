@@ -3,7 +3,7 @@ import { useStore } from "../../api/store";
 import type { PacketRec } from "../../api/types";
 import { Icon } from "../../components/Icon";
 import { PageHeader } from "../../components/Shell";
-import { STAGE_IN_TEXT, clock, decidedBy, endpoint, fmt, info } from "../../lib/format";
+import { STAGE_IN_TEXT, clock, decidedBy, endpoint, fmt, info, verdictWord } from "../../lib/format";
 import { setParams, useRoute } from "../../lib/router";
 import { Inspector } from "./Inspector";
 import "./traffic.css";
@@ -15,6 +15,7 @@ function useFilter() {
   return {
     q: params.get("q") ?? "", verdict: params.get("verdict") ?? "", proto: params.get("proto") ?? "",
     dir: params.get("dir") ?? "", stage: params.get("stage") ?? "", packet: Number(params.get("packet")) || null,
+    ip: params.get("ip") ?? "",
   };
 }
 
@@ -45,11 +46,12 @@ export function Traffic() {
       if (f.proto && p.proto !== f.proto) continue;
       if (f.dir && p.dir !== f.dir) continue;
       if (f.stage && p.stage !== f.stage) continue;
+      if (f.ip && String(p.v ?? 4) !== f.ip) continue;
       if (!matchesQuery(p, f.q)) continue;
       out.push(p);
     }
     return out;
-  }, [source, f.verdict, f.proto, f.dir, f.stage, f.q]);
+  }, [source, f.verdict, f.proto, f.dir, f.stage, f.q, f.ip]);
 
   const counts = useMemo(() => {
     let a = 0;
@@ -58,7 +60,7 @@ export function Traffic() {
   }, [paused, live, heldRing]);
 
   const selected = f.packet;
-  const filtered = !!(f.verdict || f.proto || f.dir || f.stage || f.q);
+  const filtered = !!(f.verdict || f.proto || f.dir || f.stage || f.q || f.ip);
 
   return (
     <>
@@ -82,8 +84,13 @@ export function Traffic() {
           <button aria-pressed={f.verdict === "DROP"} onClick={() => setParams({ verdict: "DROP" })}>Blocked<span className="count">{fmt(counts.d)}</span></button>
         </div>
         <div className="seg" role="group" aria-label="Protocol">
-          {["", "tcp", "udp", "icmp"].map((p) => (
-            <button key={p} aria-pressed={f.proto === p} onClick={() => setParams({ proto: p })}>{p ? p.toUpperCase() : "Any protocol"}</button>
+          {["", "tcp", "udp", "icmp", "icmpv6"].map((p) => (
+            <button key={p} aria-pressed={f.proto === p} onClick={() => setParams({ proto: p })}>{p === "icmpv6" ? "ICMPv6" : p ? p.toUpperCase() : "Any protocol"}</button>
+          ))}
+        </div>
+        <div className="seg" role="group" aria-label="IP version">
+          {[["", "IPv4 + IPv6"], ["4", "IPv4"], ["6", "IPv6"]].map(([v, l]) => (
+            <button key={v} aria-pressed={f.ip === v} onClick={() => setParams({ ip: v })}>{l}</button>
           ))}
         </div>
         <div className="seg" role="group" aria-label="Direction">
@@ -92,7 +99,7 @@ export function Traffic() {
           ))}
         </div>
         {f.stage && <button className="btn small" onClick={() => setParams({ stage: "" })}>Decided at {STAGE_IN_TEXT[f.stage as keyof typeof STAGE_IN_TEXT] ?? f.stage} <Icon name="close" size={12} /></button>}
-        {filtered && <button className="link" onClick={() => { setQuery(""); setParams({ q: "", verdict: "", proto: "", dir: "", stage: "" }); }}>Clear filters</button>}
+        {filtered && <button className="link" onClick={() => { setQuery(""); setParams({ q: "", verdict: "", proto: "", dir: "", stage: "", ip: "" }); }}>Clear filters</button>}
         <span className="tr-total muted">{fmt(rows.length)} shown{missed ? ` · ${fmt(missed)} skipped during floods` : ""}</span>
       </div>
 
@@ -147,10 +154,10 @@ function PacketTable({ rows, selected, onSelect, empty }: { rows: PacketRec[]; s
                 <span className="faint">{p.dir === "in" ? "In" : p.dir === "out" ? "Out" : "—"}</span>
                 <span className="mono ell">{endpoint(p.src, p.sport)}</span>
                 <span className="mono ell">{endpoint(p.dst, p.dport)}</span>
-                <span className="mono">{p.proto.toUpperCase()}</span>
+                <span className="mono">{p.proto === "icmpv6" ? "ICMPv6" : p.proto.toUpperCase()}</span>
                 <span className="num">{p.len}</span>
-                <span className="mono ell muted">{info(p)}{p.service && p.src ? <span className="faint"> · {p.service}</span> : null}</span>
-                <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : p.verdict === "ACCEPT" ? "allow" : "block"}`}>{p.verdict === "ACCEPT" ? "Allowed" : "Blocked"}</span>
+                <span className="mono ell muted">{info(p)}{p.service && p.src && !p.proto.startsWith("icmp") ? <span className="faint"> · {p.service}</span> : null}</span>
+                <span className={`verdict ${p.idsAlert || p.rateLimited ? "warn" : p.verdict === "ACCEPT" ? "allow" : "block"}`}>{verdictWord(p)}</span>
                 <span className="ell muted">{decidedBy(p)}</span>
               </button>
             ))}

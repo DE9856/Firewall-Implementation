@@ -66,7 +66,7 @@ export function Analytics() {
           </section>
           <section className="panel">
             <div className="panel-head"><h2>By protocol</h2></div>
-            <Split rows={group(flows, (f) => (f.proto ?? "?").toUpperCase())} total={total} showBytes />
+            <Split rows={group(flows, (f) => (f.proto === "icmpv6" ? "ICMPv6" : (f.proto ?? "?").toUpperCase()))} total={total} showBytes />
           </section>
         </div>
       </div>

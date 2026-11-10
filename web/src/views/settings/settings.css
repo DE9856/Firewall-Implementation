@@ -10,3 +10,19 @@
 .set-switch { grid-template-columns: minmax(0, 1fr) auto !important; align-items: center; }
 .set-switch p { font-size: var(--fs-small); margin-top: 2px; }
 @media (max-width: 860px) { .set-row { grid-template-columns: minmax(0, 1fr); gap: 10px; } .set-panel > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+.set-ids { align-items: start; grid-template-columns: 190px minmax(0, 1fr) !important; }
+.set-panel > div.set-full { grid-template-columns: minmax(0, 1fr); }
+.set-ids dt { display: flex; flex-direction: column; gap: 2px; color: var(--text) !important; }
+.set-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+.set-inline .input { width: 76px; height: 28px; }
+.set-actions { display: flex !important; align-items: center; gap: 10px; flex-wrap: wrap; }
+.set-error { color: var(--block-ink); }
+.set-ban { grid-template-columns: minmax(140px, auto) minmax(0, 1fr) auto !important; align-items: center; }
+.set-banform { display: flex !important; gap: 8px; align-items: center; flex-wrap: wrap; }
+.set-banform > label:first-child { flex: 1; min-width: 200px; }
+.set-banform > label:first-child .input { width: 100%; }
+.set-sessions { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.set-sessions li { display: grid; grid-template-columns: 70px 52px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.set-downloads { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.set-downloads a { text-decoration: none; }

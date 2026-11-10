@@ -1,0 +1,41 @@
+.cn-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.cn-body.with-panel { grid-template-columns: minmax(0, 1fr) 400px; }
+.cn-table { overflow-x: auto; }
+.cn-table table { width: 100%; border-collapse: collapse; }
+.cn-table th { text-align: left; font-weight: 400; color: var(--muted); font-size: var(--fs-small); padding: 14px 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.cn-table th.num { text-align: right; }
+.cn-table td { padding: 8px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.cn-table td:first-child, .cn-table th:first-child { padding-left: 18px; }
+.cn-table td.ell { max-width: 260px; }
+.cn-table tbody tr { cursor: pointer; transition: background-color 150ms var(--ease-out); }
+.cn-table tbody tr:hover { background: var(--raised); }
+.cn-table tr.on { background: #24262a; box-shadow: inset 1px 0 0 var(--select); }
+
+.cn-exp { display: inline-flex; align-items: center; gap: 8px; }
+.cn-track { width: 56px; height: 3px; border-radius: 2px; background: var(--idle); overflow: hidden; }
+.cn-track i { display: block; height: 100%; background: var(--faint); }
+
+.addr { font-size: 14px; word-break: break-all; }
+
+.cn-steps { list-style: none; display: flex; margin: 4px 18px 10px; padding: 0; gap: 0; font-size: var(--fs-small); }
+.cn-steps li { flex: 1; padding: 6px 0 0; color: var(--faint); border-top: 2px solid var(--idle); position: relative; }
+.cn-steps li + li { padding-left: 6px; }
+.cn-steps li.on { color: var(--text); font-weight: 600; border-top-color: var(--allow); }
+
+.ladder { margin: 0 18px 4px; }
+.ladder svg { display: block; overflow: visible; }
+.lad-end { fill: var(--muted); font: 500 11px var(--font); }
+.lad-life { stroke: var(--control); stroke-width: 1; stroke-dasharray: 2 3; }
+.lad-pkt { cursor: pointer; }
+.lad-pkt line, .lad-pkt path { stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.lad-pkt.allow line, .lad-pkt.allow path { stroke: var(--allow); }
+.lad-pkt.block line, .lad-pkt.block path { stroke: var(--block); }
+.lad-pkt.block line { stroke-dasharray: 3 3; }
+.lad-hit { fill: transparent; }
+.lad-pkt:hover .lad-hit { fill: var(--raised); }
+.lad-label { fill: var(--text); font: 400 11px var(--mono); }
+.lad-len { fill: var(--faint); font: 400 10px var(--mono); }
+
+@media (max-width: 1180px) {
+  .cn-body.with-panel { grid-template-columns: minmax(0, 1fr); }
+}

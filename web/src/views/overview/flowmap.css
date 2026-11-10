@@ -23,7 +23,7 @@
 .flowmap .sub { fill: var(--muted); font-size: 12px; }
 .flowmap .held { fill: var(--block-ink); }
 .flowmap .note { fill: var(--muted); font-size: 12px; }
-.flowmap .col-head { fill: var(--muted); font-size: 12px; cursor: pointer; }
+.flowmap .col-head { fill: var(--muted); font-size: 12px; font-weight: 500; cursor: pointer; }
 .flowmap .col-head:hover, .flowmap .col-head.on { fill: var(--text); }
 .flowmap .col-head.on { text-decoration: underline; text-underline-offset: 4px; }
 
@@ -40,7 +40,7 @@
 .flowmap .bin { cursor: pointer; }
 .flowmap .bin-edge { fill: none; stroke: #3a3d42; stroke-width: 1.25; }
 .flowmap .bin:hover .bin-edge, .flowmap .bin.on .bin-edge { stroke: var(--text); }
-.flowmap .bin-count { font-family: var(--mono); font-size: 12px; fill: var(--faint); }
+.flowmap .bin-count { font-family: var(--mono); font-size: 13px; fill: var(--faint); }
 .flowmap .bin-count.held { fill: var(--block-ink); }
 
 .flow-empty { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); color: var(--muted); background: var(--surface); padding: 8px 12px; border-radius: var(--radius); }

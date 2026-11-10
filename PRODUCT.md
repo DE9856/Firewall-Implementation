@@ -36,12 +36,12 @@ Every verdict on screen is explainable from PyWall's real, deterministic pipelin
 
 ## Capabilities and Constraints
 
-- IPv4 only; TCP, UDP, ICMP headers parsed from raw bytes. No Ethernet layer (NFQUEUE delivers from the IP header), no MAC addresses, no payload or application inspection, no GeoIP, no hostnames.
-- Verdicts: ACCEPT or DROP only. There is no REJECT; "blocked" and "dropped" are the same thing.
+- IPv4 and IPv6; TCP, UDP, ICMP and ICMPv6 headers parsed from raw bytes. No Ethernet layer (NFQUEUE delivers from the IP header), no MAC addresses, no payload or application inspection, no GeoIP, no hostnames.
+- Verdicts: ACCEPT or DROP. A REJECT rule drops too and also answers the sender (TCP RST / ICMP error); on screen it is "Rejected", a kind of blocked, with the same coral.
 - Rules: ordered (priority = position), first match wins; conditions are direction, protocol, src/dst CIDR, src/dst ports and ranges, ICMP type, TCP flags, per-source token-bucket rate limit, log flag. Default policy DROP.
 - Connection tracking: NEW / ESTABLISHED / INVALID per 5-tuple, with timeouts; established traffic bypasses the rule table.
 - IDS: SYN flood, port scan, ICMP flood per source, with a temporary ban (60 s default). "Suspicious" means only these detections or a rate-limit hit.
-- Statistics are in memory for the running session; no persistent history.
+- Totals are per session; events, blocked packets and per-second counters are saved to SQLite (data/history.sqlite) and reloaded on restart.
 - Rule editing (create, edit, delete, reorder, enable/disable) is being added (approved): validated with the existing rule validator, saved to `config/rules.json`, hot-swapped; each change is a configuration event.
 
 ## Brand Commitments

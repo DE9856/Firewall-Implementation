@@ -237,7 +237,7 @@ def demo() -> None:
     say("SSH from outside the LAN and RDP: silently dropped")
     probe(f"tcp {HOST_IP} 22")
     probe(f"tcp {HOST_IP} 3389")
-    say("outbound: web allowed, telnet (port 23) blocked by rule 2")
+    say("outbound: web allowed; telnet (port 23) rejected by rule 2, so the client is refused at once")
     run(f"curl -s http://{ATK_IP}/", ["curl", "-s", "-m", "3", f"http://{ATK_IP}/"], "host")
     probe(f"tcp {ATK_IP} 23", who="host")
     say("spoofed TCP ACK that belongs to no connection: dropped as INVALID")

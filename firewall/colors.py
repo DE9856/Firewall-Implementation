@@ -35,7 +35,7 @@ class Painter:
         return f"\033[{';'.join(_CODES[s] for s in styles)}m{text}\033[0m"
 
     def verdict(self, v: str, width: int = 6) -> str:
-        styles = {"ACCEPT": ("bold", "green"), "DROP": ("bold", "red")}.get(v.strip(), ())
+        styles = {"ACCEPT": ("bold", "green"), "DROP": ("bold", "red"), "REJECT": ("bold", "red")}.get(v.strip(), ())
         return self(f"{v:<{width}}", *styles)
 
 

@@ -2,7 +2,8 @@
 // One external store for the whole app; views read it with useStore(selector).
 import { useSyncExternalStore } from "react";
 import type {
-  ConfigInfo, EventRec, FlowRec, PacketRec, RuleRec, SeriesPoint, Snapshot, Source, Stats, Update,
+  Attack, ConfigInfo, ConnTable, EventRec, FlowRec, IdsSettings, PacketRec, Preview, RuleRec, SeriesPoint,
+  SessionRec, Snapshot, Source, Stats, Update,
 } from "./types";
 
 export type ConnState = "connecting" | "live" | "reconnecting" | "offline";
@@ -87,9 +88,16 @@ function applyUpdate(u: Update) {
   const fresh = u.packets.filter((p) => p.id > lastId);
   const packets = fresh.length ? state.packets.concat(fresh).slice(-MAX_PACKETS) : state.packets;
   let rules = state.rules;
+  // The server sends the whole rule table once a second, so changes made elsewhere (another
+  // tab, the API) appear here too. Unchanged rules keep their identity to avoid re-renders.
   if (u.rules) {
-    const hits = new Map(u.rules.map((r) => [r.id, r.hits]));
-    rules = rules.map((r) => (hits.has(r.id) && hits.get(r.id) !== r.hits ? { ...r, hits: hits.get(r.id)! } : r));
+    const old = new Map(state.rules.map((r) => [r.id, r]));
+    const next = u.rules.map((r) => {
+      const o = old.get(r.id);
+      return o && JSON.stringify(o) === JSON.stringify(r) ? o : r;
+    });
+    const same = next.length === state.rules.length && next.every((r, i) => r === state.rules[i]);
+    if (!same) rules = next;
   }
   const freshHeld = fresh.filter((p) => p.verdict === "DROP");
   const held = freshHeld.length ? state.held.concat(freshHeld).slice(-MAX_HELD) : state.held;
@@ -166,4 +174,20 @@ export const api = {
   updateRule: (id: number, spec: unknown) => send<{ id: number }>("PUT", `/api/rules/${id}`, { spec }),
   deleteRule: (id: number) => send<{ id: number }>("DELETE", `/api/rules/${id}`),
   reorder: (ids: number[]) => send("POST", "/api/rules/order", { ids }),
+  preview: (body: { op: string; spec?: unknown; id?: number; position?: number; ids?: number[] }) =>
+    send<Preview>("POST", "/api/rules/preview", body),
+  connections: async (limit = 500) => {
+    const r = await fetch(`/api/connections?limit=${limit}`, { cache: "no-store" });
+    if (!r.ok) throw new Error("could not load the connection table");
+    return r.json() as Promise<ConnTable>;
+  },
+  sessions: async () => {
+    const r = await fetch("/api/sessions", { cache: "no-store" });
+    if (!r.ok) throw new Error("could not load saved sessions");
+    return ((await r.json()) as { sessions: SessionRec[] }).sessions;
+  },
+  attack: (kind: string) => send<Attack>("POST", "/api/attack", { kind }),
+  setIds: (body: Partial<IdsSettings>) => send<{ ids: IdsSettings }>("PUT", "/api/ids", body),
+  ban: (src: string, seconds: number) => send("POST", "/api/bans", { src, seconds }),
+  unban: (src: string) => send("DELETE", `/api/bans/${encodeURIComponent(src)}`),
 };

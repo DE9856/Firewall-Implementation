@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { onPackets, useStore } from "../../api/store";
-import type { FlowRec, PacketRec } from "../../api/types";
+import type { Ban, FlowRec, PacketRec } from "../../api/types";
 import { bytes, fmt, STAGE_EXPLAIN } from "../../lib/format";
 
 /** One plain phrase per stage, for hover tooltips on the stage names. */
@@ -53,7 +53,11 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld = 0, speed = 1, onlyBlocked = false, journey = null, onJourneyStep }: {
+const NO_PINS: string[] = [];
+const NO_BANS: Ban[] = [];   // stable empty value for useStore
+
+export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld = 0, speed = 1, onlyBlocked = false, journey = null, onJourneyStep, pinned = NO_PINS }: {
+  pinned?: string[];
   flows: FlowRec[]; selection: Selection; onSelect: (s: Selection) => void; animate: boolean; height: number; parseHeld?: number;
   speed?: number; onlyBlocked?: boolean; journey?: Journey | null; onJourneyStep?: (step: number, done: boolean, onMap: boolean) => void;
 }) {
@@ -62,7 +66,7 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
   const [width, setWidth] = useState(1000);
   const [hover, setHover] = useState<{ r: Ribbon; x: number; y: number } | null>(null);
   const reduced = usePrefersReducedMotion();
-  const bans = useStore((s) => s.config?.bans ?? []);
+  const bans = useStore((s) => s.config?.bans ?? NO_BANS);
   const maxNodes = width < 900 ? 4 : 6;
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export function FlowMap({ flows, selection, onSelect, animate, height, parseHeld
   useEffect(() => {   // narrow screens: the map scrolls sideways inside its panel; start at the pipeline
     if (wrap.current && wrap.current.clientWidth < 640) wrap.current.scrollLeft = Math.max(0, layoutRef.current.fx - 24);
   }, [width]);
-  const L = useMemo(() => layout(flows, selection, width, height, maxNodes, parseHeld), [flows, selection, width, height, maxNodes, parseHeld]);
+  const L = useMemo(() => layout(flows, selection, width, height, maxNodes, parseHeld, pinned), [flows, selection, width, height, maxNodes, parseHeld, pinned]);
   const layoutRef = useRef<Layout>(L);
   layoutRef.current = L;
   const selRef = useRef(selection);

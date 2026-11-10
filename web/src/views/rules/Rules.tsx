@@ -3,7 +3,7 @@ import { api, refreshRules, useStore } from "../../api/store";
 import type { RuleRec } from "../../api/types";
 import { Icon } from "../../components/Icon";
 import { PageHeader } from "../../components/Shell";
-import { fmt, ruleSentence } from "../../lib/format";
+import { ACTION_WORD, actionTone, fmt, ruleSentence } from "../../lib/format";
 import { setParams, useRoute } from "../../lib/router";
 import { RuleDetail } from "./RuleDetail";
 import { RuleEditor } from "./RuleEditor";
@@ -40,15 +40,18 @@ export function Rules() {
   const toggle = (r: RuleRec) => act(r.id, () => api.updateRule(r.id, { ...r.spec, enabled: !r.enabled }));
 
   const enabled = rules.filter((r) => r.enabled).length;
+  const flagged = rules.filter((r) => r.enabled && r.finding).length;
+  const nextId = Math.max(0, ...rules.map((r) => r.id)) + 1;
   const panel = editing ? "edit" : testing ? "test" : selected ? "detail" : null;
   const selRule = useMemo(() => rules.find((r) => r.id === selected) ?? null, [rules, selected]);
+  const editRule = useMemo(() => (editing && editing !== "new" ? rules.find((r) => r.id === Number(editing)) ?? null : null), [rules, editing]);
 
   return (
     <>
       <PageHeader title="Firewall rules"
-        finding={`${enabled} of ${rules.length} rules active, checked from the top; the first match decides. Anything unmatched gets ${config?.defaultPolicy === "ACCEPT" ? "allowed" : "blocked"}.${readOnly ? " This public demo is read-only: inspect and test rules, but they can't be changed." : ""}`}>
+        finding={`${enabled} of ${rules.length} rules active, checked from the top; the first match decides. Anything unmatched gets ${config?.defaultPolicy === "ACCEPT" ? "allowed" : "blocked"}.${flagged ? ` ${flagged} rule${flagged > 1 ? "s" : ""} can never decide anything: see the marked rows.` : ""}${readOnly ? " This public demo is read-only: try changes and see their effect, but nothing is saved." : ""}`}>
         <button className="btn" onClick={() => setParams({ test: 1, edit: "", rule: "" })}>Test a packet</button>
-        {!readOnly && <button className="btn primary" onClick={() => setParams({ edit: "new", test: "", rule: "" })}><Icon name="plus" size={14} />New rule</button>}
+        <button className="btn primary" onClick={() => setParams({ edit: "new", test: "", rule: "" })}><Icon name="plus" size={14} />{readOnly ? "Try a new rule" : "New rule"}</button>
       </PageHeader>
 
       <div className={`ru-body${panel ? " with-panel" : ""}`}>
@@ -73,14 +76,21 @@ export function Rules() {
                         {s.name || `Rule ${r.id}`}<span className="faint mono"> #{r.id}</span>
                       </button>
                       <span className="muted">{ruleSentence(s)}</span>
+                      {r.finding && r.enabled && (
+                        <span className="ru-flag" title={r.finding.message}>
+                          {r.finding.kind === "redundant" ? `Redundant: rule ${r.finding.by} above already does this`
+                            : r.finding.kind === "never" ? "Can never match"
+                              : `Never decides: rule ${r.finding.by} above catches these packets first`}
+                        </span>
+                      )}
                     </td>
-                    <td><span className={`verdict ${s.action === "ACCEPT" ? "allow" : "block"}`}>{s.action === "ACCEPT" ? "Allow" : "Drop"}</span></td>
+                    <td><span className={`verdict ${actionTone(s.action)}`}>{ACTION_WORD[s.action]}</span></td>
                     <td>{show(s.direction)}</td>
-                    <td className="mono">{show(s.protocol)}{s.protocol === "icmp" && s.icmp_type != null ? ` type ${s.icmp_type}` : ""}</td>
+                    <td className="mono">{show(s.protocol)}{(s.protocol === "icmp" || s.protocol === "icmpv6") && s.icmp_type != null ? ` type ${s.icmp_type}` : ""}</td>
                     <td className="mono ell">{show(s.src)}</td>
                     <td className="mono ell">{show(s.dst)}</td>
                     <td className="mono ell">{s.dst_port != null ? show(s.dst_port) : s.src_port != null ? `from ${show(s.src_port)}` : "any"}{s.rate_limit ? <span className="faint"> · {s.rate_limit}</span> : null}</td>
-                    <td className="num"><span className="mono">{fmt(r.hits)}</span><i className="hitbar" style={{ width: `${(r.hits / maxHits) * 100}%` }} /></td>
+                    <td className="num">{r.hits || !r.enabled ? <span className="mono">{fmt(r.hits)}</span> : <span className="faint small" title="No packet has matched this rule since PyWall started">none yet</span>}<i className="hitbar" style={{ width: `${(r.hits / maxHits) * 100}%` }} /></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className="switch" role="switch" aria-checked={r.enabled} disabled={busy === r.id || readOnly}
                         title={readOnly ? "Read-only demo" : undefined}
@@ -107,9 +117,15 @@ export function Rules() {
         </section>
 
         {panel === "detail" && selRule && <RuleDetail rule={selRule} readOnly={readOnly} onEdit={() => setParams({ edit: selRule.id })} onClose={() => setParams({ rule: "" })} />}
-        {panel === "detail" && !selRule && <aside className="panel ru-panel"><p className="empty">Rule {selected} no longer exists.</p></aside>}
-        {panel === "edit" && !readOnly && <RuleEditor key={editing} rule={editing === "new" ? null : rules.find((r) => r.id === Number(editing)) ?? null} count={rules.length}
-          onDone={(id) => setParams({ edit: "", rule: id ?? "" })} />}
+        {panel === "detail" && !selRule && <aside className="panel ru-panel"><p className="empty">{rules.length ? `Rule ${selected} no longer exists.` : "Loading the rule…"}</p></aside>}
+        {panel === "edit" && (editing === "new" || editRule ? (
+          <RuleEditor key={editing} rule={editing === "new" ? null : editRule} count={rules.length}
+            nextId={nextId} readOnly={readOnly} onDone={(id) => setParams({ edit: "", rule: id ?? "" })} />
+        ) : (
+          // The form copies the rule once, when it opens: wait for the rule table rather than open an empty form
+          // that would save over the rule.
+          <aside className="panel ru-panel"><p className="empty">{rules.length ? `Rule ${editing} no longer exists.` : "Loading the rule…"}</p></aside>
+        ))}
         {panel === "test" && <Tester onMatch={setTestMatch} onClose={() => { setTestMatch(null); setParams({ test: "", src: "", dst: "", sport: "", dport: "", proto: "", flags: "", dir: "" }); }} />}
       </div>
     </>

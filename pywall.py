@@ -5,16 +5,23 @@
   python3 pywall.py pcap capture.pcap        # replay a tcpdump capture through the rules
   python3 pywall.py check                    # validate and print the rule set
   sudo python3 pywall.py live [--dry-run]    # filter this machine's real traffic
+  python3 pywall.py serve                    # the web dashboard, with simulated traffic
 """
 
 import argparse
 import logging
 import os
+import sqlite3
 import sys
+from pathlib import Path
 
 from firewall.colors import colour_log_message, paint
 from firewall.engine import Firewall
+from firewall.packet import PROTO_NAMES
 from firewall.rules import RuleError, load_config
+
+
+DEFAULT_HISTORY = Path(__file__).resolve().parent / "data" / "history.sqlite"
 
 
 class ConsoleFormatter(logging.Formatter):
@@ -39,16 +46,18 @@ def setup_logging(verbose: bool, logfile: str | None) -> None:
 def cmd_check(cfg, _args):
     print(f"default policy: {paint.verdict(cfg.default_policy, 0)}   stateful: {cfg.stateful}   "
           f"drop invalid: {cfg.drop_invalid}   IDS: {cfg.ids.get('enabled', True)}")
-    print(paint(f"{'#':>3}  {'ACTION':<6} {'DIR':<4} {'PROTO':<5} {'SRC':<18} {'DST PORT / TYPE':<20} NAME", "bold"))
+    print(paint(f"{'#':>3}  {'ACTION':<6} {'DIR':<4} {'PROTO':<6} {'SRC':<18} {'DST PORT / TYPE':<20} NAME", "bold"))
     for r in cfg.rules:
-        proto = {1: "icmp", 6: "tcp", 17: "udp"}.get(r.protocol, "any")
+        proto = PROTO_NAMES.get(r.protocol, "any") if r.protocol is not None else "any"
         src = ",".join(map(str, r.src)) if r.src else "any"
+        if len(src) > 18:
+            src = src[:17] + "…"
         ports = ",".join(f"{a}" if a == b else f"{a}-{b}" for a, b in r.dst_port) if r.dst_port else "any"
         if r.icmp_type is not None:
             ports = f"icmp type {r.icmp_type}"
         if r.rate_limit:
             ports += f" ({r.rate_limit[0]}/{r.rate_limit[1]}s)"
-        print(f"{r.id:>3}  {paint.verdict(r.action)} {r.direction:<4} {proto:<5} {src:<18} {ports:<20} {r.name}")
+        print(f"{r.id:>3}  {paint.verdict(r.action)} {r.direction:<4} {proto:<6} {src:<18} {ports:<20} {r.name}")
     print(paint("Rule set is valid.", "green"))
     return 0
 
@@ -75,7 +84,7 @@ def cmd_pcap(cfg, args):
 def cmd_live(cfg, args):
     from firewall.live import run_live
     run_live(Firewall(cfg), dry_run=args.dry_run, include_loopback=args.include_loopback,
-             interface=args.interface)
+             interface=args.interface, ipv6=args.ipv6)
     return 0
 
 
@@ -137,13 +146,24 @@ def cmd_serve(cfg, args):
     else:
         source = {"kind": "simulated", "label": "Simulated traffic (real packets, synthetic pattern)"}
     source["readOnly"] = bool(args.read_only)
-    monitor = Monitor(fw, source)
-    serve(fw, monitor, args.config, args.host, args.port, read_only=args.read_only)
+    history = None
+    if not args.no_history:
+        from firewall.history import History
+        try:
+            history = History(args.history, source["label"])
+        except (OSError, sqlite3.Error) as exc:
+            print(paint("warning:", "bold", "yellow") + f" session history is off ({args.history}: {exc})", file=sys.stderr)
+    monitor = Monitor(fw, source, history=history)
+    generator = None
+    if args.source == "simulated":
+        from firewall.traffic import TrafficGenerator
+        generator = TrafficGenerator(fw, seed=args.seed, speed=args.speed)
+    serve(fw, monitor, args.config, args.host, args.port, read_only=args.read_only, generator=generator)
     print(paint(f"PyWall dashboard: http://{args.host}:{args.port}/", "bold", "green") + f"  [{source['label']}]")
     try:
         if args.source == "live":
             from firewall.live import run_live
-            run_live(fw, dry_run=args.dry_run, interface=args.interface)
+            run_live(fw, dry_run=args.dry_run, interface=args.interface, ipv6=args.ipv6)
         elif args.source == "pcap":
             from firewall.pcap import read_pcap
             while True:
@@ -160,8 +180,7 @@ def cmd_serve(cfg, args):
                         time.sleep(3600)
                 time.sleep(2)
         else:
-            from firewall.traffic import TrafficGenerator
-            TrafficGenerator(fw, seed=args.seed, speed=args.speed).run()
+            generator.run()
     except KeyboardInterrupt:
         pass
     return 0
@@ -182,6 +201,7 @@ def main(argv=None):
     lv.add_argument("--include-loopback", action="store_true", help="also filter the lo interface")
     lv.add_argument("-i", "--interface", help="only filter traffic on this interface ('auto' = the default route's)")
     lv.add_argument("--lan", help="local networks: 'auto' (detect) or CIDR[,CIDR]; $LAN in rules follows it")
+    lv.add_argument("--ipv6", action="store_true", help="also filter IPv6 (ip6tables hooks)")
     dr = sub.add_parser("doctor", help="check this machine is ready for a live demo")
     dr.add_argument("-i", "--interface", default="auto")
     dr.add_argument("--lan", default="auto")
@@ -200,6 +220,11 @@ def main(argv=None):
     sv.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)),
                     help="port to listen on (default: $PORT if set, else 8080)")
     sv.add_argument("--read-only", action="store_true", help="refuse rule changes (for a public demo)")
+    sv.add_argument("--ipv6", action="store_true", help="live mode: also filter IPv6 (ip6tables hooks)")
+    sv.add_argument("--history", default=str(DEFAULT_HISTORY), metavar="FILE",
+                    help="keep events, blocked packets and counters across restarts in this SQLite file "
+                         "(default: data/history.sqlite)")
+    sv.add_argument("--no-history", action="store_true", help="keep this session in memory only")
     args = p.parse_args(argv)
 
     setup_logging(args.verbose, args.log)
@@ -214,7 +239,7 @@ def main(argv=None):
         if args.lan == "auto":
             from firewall.netinfo import default_interface, interface_networks
             dev = args.interface or default_interface()
-            lan = interface_networks(dev) if dev else []
+            lan = interface_networks(dev, ipv6=getattr(args, "ipv6", False)) if dev else []
             if not lan:
                 print(paint("error:", "bold", "red") + " could not detect the local network; pass --lan CIDR", file=sys.stderr)
                 return 2

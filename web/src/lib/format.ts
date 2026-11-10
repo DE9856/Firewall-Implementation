@@ -1,4 +1,4 @@
-import type { PacketRec, RuleSpec, Stage } from "../api/types";
+import type { Action, PacketRec, RuleSpec, Stage } from "../api/types";
 
 export const nf = new Intl.NumberFormat("en-US");
 export const fmt = (n: number | null | undefined) => (n == null ? "—" : nf.format(n));
@@ -41,7 +41,7 @@ export const STAGE_IN_TEXT: Record<Stage, string> = {
 };
 
 export const STAGE_EXPLAIN: Record<Stage, string> = {
-  parse: "The raw bytes are read as an IPv4 header and its TCP, UDP or ICMP header. Broken packets stop here.",
+  parse: "The raw bytes are read as an IPv4 or IPv6 header and its TCP, UDP or ICMP header. Broken packets stop here.",
   whitelist: "Trusted networks are accepted at once and skip every other check.",
   blacklist: "Networks on the blacklist are dropped at once.",
   ids_ban: "Sources the intrusion detector banned recently are dropped until the ban expires.",
@@ -53,13 +53,26 @@ export const STAGE_EXPLAIN: Record<Stage, string> = {
 
 export function endpoint(ip: string | null | undefined, port: number | null | undefined) {
   if (!ip) return "—";
-  return port != null ? `${ip}:${port}` : ip;
+  if (port == null) return ip;
+  return ip.includes(":") ? `[${ip}]:${port}` : `${ip}:${port}`;   // IPv6 addresses are bracketed before a port
 }
+
+/** The verdict word for a packet: Allowed, Blocked or Rejected (blocked, and the sender was told). */
+export function verdictWord(p: Pick<PacketRec, "verdict" | "reject">): string {
+  return p.verdict === "ACCEPT" ? "Allowed" : p.reject ? "Rejected" : "Blocked";
+}
+
+export const ACTION_WORD: Record<Action, string> = { ACCEPT: "Allow", DROP: "Drop", REJECT: "Reject" };
+export const actionTone = (a: Action | undefined) => (a === "ACCEPT" ? "allow" : "block");
+
+const ICMP4: Record<number, string> = { 0: "echo reply", 3: "unreachable", 8: "echo request", 11: "time exceeded" };
+const ICMP6: Record<number, string> = { 1: "unreachable", 2: "packet too big", 3: "time exceeded", 128: "echo request", 129: "echo reply",
+  133: "router solicitation", 134: "router advert", 135: "neighbour solicitation", 136: "neighbour advert" };
 
 export function info(p: PacketRec): string {
   if (p.proto === "tcp") return `[${p.flags || "."}]`;
-  if (p.proto === "icmp") {
-    const k: Record<number, string> = { 0: "echo reply", 3: "unreachable", 8: "echo request", 11: "time exceeded" };
+  if (p.proto === "icmp" || p.proto === "icmpv6") {
+    const k = p.proto === "icmpv6" ? ICMP6 : ICMP4;
     return `${k[p.icmpType ?? -1] ?? `type ${p.icmpType}`}`;
   }
   if (p.proto === "udp") return "datagram";
@@ -67,7 +80,7 @@ export function info(p: PacketRec): string {
 }
 
 export function decidedBy(p: PacketRec): string {
-  if (p.stage === "rule" && p.rule != null) return p.rateLimited ? `rule ${p.rule} rate limit` : `rule ${p.rule}`;
+  if (p.stage === "rule" && p.rule != null) return p.rateLimited ? `rule ${p.rule} rate limit` : p.reject ? `rule ${p.rule}, sent ${p.reject}` : `rule ${p.rule}`;
   return STAGE_IN_TEXT[p.stage];
 }
 
@@ -76,10 +89,10 @@ const list = (v: unknown): string[] =>
 
 /** A rule in one plain sentence, e.g. "Drops inbound TCP to port 22 from any source." */
 export function ruleSentence(s: RuleSpec): string {
-  const verb = s.action === "ACCEPT" ? "Allows" : "Drops";
+  const verb = s.action === "ACCEPT" ? "Allows" : s.action === "REJECT" ? "Rejects" : "Drops";
   const dir = s.direction === "in" ? "inbound " : s.direction === "out" ? "outbound " : "";
-  const proto = s.protocol && s.protocol !== "any" ? `${s.protocol.toUpperCase()} ` : "";
-  const what = `${dir}${proto}${s.protocol === "icmp" && s.icmp_type != null ? `type ${s.icmp_type} ` : ""}traffic`;
+  const proto = s.protocol && s.protocol !== "any" ? `${s.protocol === "icmpv6" ? "ICMPv6" : s.protocol.toUpperCase()} ` : "";
+  const what = `${dir}${proto}${(s.protocol === "icmp" || s.protocol === "icmpv6") && s.icmp_type != null ? `type ${s.icmp_type} ` : ""}traffic`;
   const parts = [`${verb} ${what.trim()}`];
   const dp = list(s.dst_port), sp = list(s.src_port), src = list(s.src), dst = list(s.dst);
   if (dp.length) parts.push(`to port${dp.length > 1 || dp[0].includes("-") ? "s" : ""} ${dp.join(", ")}`);
@@ -94,5 +107,6 @@ export function ruleSentence(s: RuleSpec): string {
     const word = { s: "second", sec: "second", m: "minute", min: "minute", h: "hour" }[unit] ?? unit;
     out += `, up to ${n} per ${word} from each source`;
   }
+  if (s.action === "REJECT") out += ", and tells the sender (TCP reset or ICMP error) so it fails at once";
   return out + ".";
 }

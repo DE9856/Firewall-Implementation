@@ -1,5 +1,7 @@
 """The decision engine: every packet goes through the same pipeline and
-gets an ACCEPT or DROP verdict.
+gets an ACCEPT or DROP verdict. A REJECT rule drops the packet too, and also
+answers the sender (TCP RST or an ICMP error) so it fails fast instead of
+waiting for a timeout.
 
     parse -> whitelist -> blacklist / IDS bans -> IDS inspection
           -> connection state -> rule table (first match) -> default policy
@@ -18,7 +20,7 @@ from typing import Callable
 from .colors import paint
 from .conntrack import ESTABLISHED, INVALID, NEW, ConnTrack
 from .ids import IntrusionDetector
-from .packet import RST, Packet, PacketError, parse_packet
+from .packet import RST, Packet, PacketError, parse_packet, reject_reply
 from .rules import Config, Rule, now as clock
 
 log = logging.getLogger("firewall")
@@ -40,6 +42,8 @@ class Decision:
     direction: str | None = None
     ids_alert: str | None = None       # set when this packet triggered an IDS ban
     rate_limited: bool = False
+    reject: str | None = None          # REJECT rule: what was sent back, e.g. "TCP RST"
+    reply: bytes = b""                 # ... and the reply packet itself
     time: float = field(default_factory=time.time)   # wall clock, for display
     header: bytes = b""
 
@@ -55,6 +59,8 @@ class Firewall:
         # Observers (the dashboard) are called with every Decision. The lock
         # guards engine state when packets and API requests come from threads.
         self.listeners: list[Callable[[Decision], None]] = []
+        # Live mode sets this to put REJECT replies on the wire; elsewhere they are only recorded.
+        self.reply_sender: Callable[[bytes], None] | None = None
         self.lock = threading.RLock()
 
     # ----------------------------------------------------------------- helpers
@@ -63,6 +69,12 @@ class Firewall:
             return "in"
         dst = ipaddress.ip_address(pkt.dst_ip)
         return "in" if any(dst in n for n in self.cfg.local_networks) else "out"
+
+    def direction_of_ip(self, dst: str) -> str:
+        if not self.cfg.local_networks:
+            return "in"
+        addr = ipaddress.ip_address(dst)
+        return "in" if any(addr in n for n in self.cfg.local_networks) else "out"
 
     @staticmethod
     def _in(ip: str, nets) -> bool:
@@ -122,6 +134,12 @@ class Firewall:
                 rule.hits += 1
                 if rule.action == "ACCEPT" and not rule.within_rate(pkt, t):
                     decision = Decision("DROP", f"rate limit exceeded ({rule.describe()})", pkt, rule, state, stage="rule", rate_limited=True)
+                elif rule.action == "REJECT":
+                    decision = Decision("DROP", rule.describe(), pkt, rule, state, stage="rule")
+                    reply = reject_reply(pkt, self._raw)
+                    if reply:
+                        decision.reply, decision.reject = reply
+                        self._send_reply(reply[0])
                 else:
                     decision = Decision(rule.action, rule.describe(), pkt, rule, state, stage="rule")
                 break
@@ -132,6 +150,13 @@ class Firewall:
             self.conntrack.track_new(pkt, t)
         return self._finish(decision)
 
+    def _send_reply(self, raw: bytes) -> None:
+        if self.reply_sender:
+            try:
+                self.reply_sender(raw)
+            except OSError as exc:            # a failed reply must never stop filtering
+                log.warning("could not send REJECT reply: %s", exc)
+
     def _finish(self, d: Decision) -> Decision:
         if d.packet is not None:
             d.direction = d.direction or self._direction
@@ -140,7 +165,8 @@ class Firewall:
         self.stats[f"reason:{d.reason}"] += 1
         level = logging.INFO if (d.verdict == "DROP" or (d.rule and d.rule.log)) else logging.DEBUG
         log.log(level, "%-6s %-55s %s", d.verdict,
-                d.packet.summary() if d.packet else "<unparseable>", d.reason)
+                d.packet.summary() if d.packet else "<unparseable>",
+                f"{d.reason} (rejected: {d.reject})" if d.reject else d.reason)
         for listener in self.listeners:
             try:
                 listener(d)

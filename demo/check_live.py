@@ -11,7 +11,9 @@ that PyWall saw each packet and gave the verdict the rule set says it should:
   * HTTPS to example.com: outbound SYN allowed by rule 3, replies on the fast path
   * DNS query to 1.1.1.1: allowed out, reply accepted as established
   * ping 1.1.1.1: echo requests allowed out, echo replies accepted as established
-  * TCP to example.com port 23 (Telnet): held by the "block outbound telnet" rule
+  * TCP to example.com port 23 (Telnet): held by the outbound Telnet rule. With the shipped
+    REJECT rule the client is refused at once (PyWall sends it a TCP RST); with a DROP rule
+    it waits and times out
   * the dashboard's live stream delivers updates
 Nothing here changes the firewall; it only sends ordinary traffic and reads the API.
 """
@@ -121,6 +123,10 @@ def main() -> int:
                  f"{held[0]['reason']}, rule {held[0]['rule']}" if held else f"{len(tel)} packets seen")
     if dry:
         report(None, "dry run: the Telnet attempt was not really blocked", f"client saw: {telnet_result}")
+    elif held and held[0].get("reject"):
+        refused = "refused" in telnet_result.lower() and telnet_secs < 2
+        ok &= report(refused, f"Telnet attempt really rejected (client got a {held[0]['reject']}: connection refused at once)",
+                     f"client saw: {telnet_result} after {telnet_secs:.1f} s")
     else:
         ok &= report(telnet_result == "timed out", "Telnet attempt really blocked (client timed out)",
                      f"client saw: {telnet_result} after {telnet_secs:.1f} s")

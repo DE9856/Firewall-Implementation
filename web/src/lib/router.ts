@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
 
-export type Section = "overview" | "traffic" | "rules" | "analytics" | "events" | "settings";
+export type Section = "overview" | "traffic" | "connections" | "rules" | "analytics" | "events" | "settings";
 export interface Route { section: Section; params: URLSearchParams; }
 
-const SECTIONS: Section[] = ["overview", "traffic", "rules", "analytics", "events", "settings"];
+const SECTIONS: Section[] = ["overview", "traffic", "connections", "rules", "analytics", "events", "settings"];
 
 function parse(): Route {
   const [path, query = ""] = window.location.hash.replace(/^#\/?/, "").split("?");

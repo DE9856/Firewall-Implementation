@@ -10,8 +10,12 @@
 .tr-table { display: flex; flex-direction: column; height: calc(100vh - 190px); min-height: 420px; overflow: hidden; }
 .tr-head, .tr-row {
   display: grid; align-items: center; gap: 12px; padding: 0 16px;
-  grid-template-columns: 54px 92px 30px minmax(150px, 1.2fr) minmax(150px, 1.2fr) 44px 52px minmax(110px, 1fr) 80px minmax(110px, 0.9fr);
+  grid-template-columns: 54px 92px 30px minmax(150px, 1.2fr) minmax(150px, 1.2fr) 56px 52px minmax(110px, 1fr) 80px minmax(110px, 0.9fr);
 }
+/* inspector open: Length and Decided-by are in the inspector, so the list drops them to keep Verdict whole */
+.tr-body.with-inspector .tr-head, .tr-body.with-inspector .tr-row { grid-template-columns: 54px 92px 30px minmax(130px, 1.2fr) minmax(130px, 1.2fr) 56px minmax(80px, 1fr) 80px; }
+.tr-body.with-inspector .tr-head > span:nth-child(7), .tr-body.with-inspector .tr-row > span:nth-child(7),
+.tr-body.with-inspector .tr-head > span:nth-child(10), .tr-body.with-inspector .tr-row > span:nth-child(10) { display: none; }
 .tr-head { height: 36px; color: var(--muted); font-size: var(--fs-small); border-bottom: 1px solid var(--border); flex: none; }
 .tr-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; outline: none; }
 .tr-scroll:focus-visible { box-shadow: inset 0 0 0 1px var(--select); }
@@ -68,7 +72,7 @@
 @media (max-width: 1180px) {
   .tr-body.with-inspector { grid-template-columns: minmax(0, 1fr); }
   .inspector { height: auto; }
-  .tr-head, .tr-row { grid-template-columns: 48px 86px minmax(130px, 1fr) minmax(130px, 1fr) 44px 74px minmax(90px, 0.8fr); }
+  .tr-head, .tr-row { grid-template-columns: 48px 86px minmax(130px, 1fr) minmax(130px, 1fr) 56px 74px minmax(90px, 0.8fr); }
   .tr-head span:nth-child(3), .tr-row > span:nth-child(3), .tr-head span:nth-child(7), .tr-row > span:nth-child(7), .tr-head span:nth-child(8), .tr-row > span:nth-child(8) { display: none; }
 }
 @media (max-width: 760px) {
@@ -81,3 +85,5 @@
   .tr-row > span { display: none; }
   .tr-row > span:nth-child(4), .tr-row > span:nth-child(9) { display: block; }
 }
+
+.insp .addr { overflow-wrap: anywhere; word-break: normal; }

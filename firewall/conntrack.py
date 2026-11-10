@@ -2,16 +2,17 @@
 reply traffic is accepted automatically (a *stateful* firewall).
 
 States reported for a packet:
-  NEW          - the packet can legitimately open a flow (TCP SYN, UDP, ICMP echo request)
+  NEW          - the packet can legitimately open a flow (TCP SYN, UDP, ICMP/ICMPv6 echo request)
   ESTABLISHED  - the packet belongs to a flow already accepted (either direction)
   INVALID      - e.g. a TCP ACK/FIN/RST, or an ICMP echo reply, with no known flow
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
-from .packet import ACK, FIN, PROTO_ICMP, PROTO_TCP, PROTO_UDP, RST, SYN, Packet
+from .packet import ACK, FIN, PROTO_TCP, PROTO_UDP, RST, SYN, Packet
 
 NEW, ESTABLISHED, INVALID = "NEW", "ESTABLISHED", "INVALID"
 
@@ -32,10 +33,14 @@ class Flow:
     last_seen: float
     timeout: float
     packets: int = 1
+    bytes: int = 0
+    created: float = 0.0                      # engine clock when the flow was accepted
+    wall: float = field(default_factory=time.time)   # wall clock at creation, for display
+    replies: int = 0                          # packets seen in the reverse direction
 
 
 def _key(pkt: Packet) -> tuple:
-    if pkt.protocol == PROTO_ICMP:
+    if pkt.is_icmp:
         return (pkt.protocol, pkt.src_ip, 0, pkt.dst_ip, 0)
     return (pkt.protocol, pkt.src_ip, pkt.src_port or 0, pkt.dst_ip, pkt.dst_port or 0)
 
@@ -54,14 +59,16 @@ class ConnTrack:
         return len(self.flows)
 
     # ------------------------------------------------------------------ lookup
-    def lookup(self, pkt: Packet, now: float) -> tuple[str, Flow | None]:
+    def _find(self, pkt: Packet) -> Flow | None:
         key = _key(pkt)
-        if pkt.protocol == PROTO_ICMP:
+        if pkt.is_icmp:
             # only an echo *reply* travelling back belongs to a ping "flow";
             # every new echo request is judged (and rate limited) by the rules
-            flow = self.flows.get(_reverse(key)) if pkt.icmp_type == 0 else None
-        else:
-            flow = self.flows.get(key) or self.flows.get(_reverse(key))
+            return self.flows.get(_reverse(key)) if pkt.is_echo_reply else None
+        return self.flows.get(key) or self.flows.get(_reverse(key))
+
+    def lookup(self, pkt: Packet, now: float) -> tuple[str, Flow | None]:
+        flow = self._find(pkt)
         if flow and now - flow.last_seen > flow.timeout:
             self._remove(flow)
             flow = None
@@ -71,12 +78,19 @@ class ConnTrack:
             return NEW, None
         return INVALID, None
 
+    def peek(self, pkt: Packet, now: float) -> tuple[str, Flow | None]:
+        """Like lookup(), but changes nothing (for explanations)."""
+        flow = self._find(pkt)
+        if flow and now - flow.last_seen <= flow.timeout:
+            return ESTABLISHED, flow
+        return (NEW if self._can_open(pkt) else INVALID), None
+
     @staticmethod
     def _can_open(pkt: Packet) -> bool:
         if pkt.protocol == PROTO_TCP:
             return pkt.has_flag(SYN) and not pkt.has_flag(ACK) and not pkt.has_flag(RST)
-        if pkt.protocol == PROTO_ICMP:
-            return pkt.icmp_type != 0          # an echo reply never opens a flow
+        if pkt.is_icmp:
+            return not pkt.is_echo_reply       # an echo reply never opens a flow
         return True                            # UDP and other protocols
 
     # ------------------------------------------------------------------ update
@@ -95,11 +109,14 @@ class ConnTrack:
         else:
             state, timeout = "ICMP", TIMEOUTS["icmp"]
         key = _key(pkt)
-        self.flows[key] = Flow(key, pkt.protocol, state, now, timeout)
+        self.flows[key] = Flow(key, pkt.protocol, state, now, timeout, bytes=pkt.length, created=now)
 
     def update(self, flow: Flow, pkt: Packet, now: float) -> None:
         flow.last_seen = now
         flow.packets += 1
+        flow.bytes += pkt.length
+        if _key(pkt) != flow.key:
+            flow.replies += 1
         if flow.proto != PROTO_TCP:
             return
         if pkt.has_flag(RST):

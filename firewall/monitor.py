@@ -20,22 +20,23 @@ import threading
 import time
 from collections import Counter, deque
 
+from .analysis import analyse
 from .engine import Decision
-from .packet import PROTO_NAMES
+from .packet import ICMP_KINDS, PROTO_NAMES
 
 SERVICES = {20: "FTP data", 21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 53: "DNS", 67: "DHCP", 68: "DHCP",
             80: "HTTP", 110: "POP3", 123: "NTP", 135: "MS-RPC", 137: "NetBIOS", 138: "NetBIOS", 139: "NetBIOS",
             143: "IMAP", 161: "SNMP", 443: "HTTPS", 445: "SMB", 993: "IMAPS", 1900: "SSDP", 3306: "MySQL",
             3389: "RDP", 5353: "mDNS", 8080: "HTTP alt"}
-ICMP_NAMES = {0: "echo reply", 3: "unreachable", 8: "echo request", 11: "time exceeded"}
 COALESCE_SECONDS = 10.0
 HISTORY_SECONDS = 15 * 60
 
 
 def service_of(p) -> str:
     """A label for what the packet is for: the well-known port it uses (either end), else the port."""
-    if p.protocol == 1:
-        return f"ICMP {ICMP_NAMES.get(p.icmp_type, p.icmp_type)}"
+    if p.is_icmp:
+        kind = ICMP_KINDS[p.version].get(p.icmp_type, f"type {p.icmp_type}")
+        return f"{'ICMPv6' if p.version == 6 else 'ICMP'} {kind.replace('destination ', '')}"
     for port in (p.dst_port, p.src_port):
         if port in SERVICES:
             return f"{SERVICES[port]} :{port}"
@@ -43,7 +44,7 @@ def service_of(p) -> str:
 
 
 class Monitor:
-    def __init__(self, fw, source: dict, max_packets: int = 5000, max_events: int = 1000):
+    def __init__(self, fw, source: dict, max_packets: int = 5000, max_events: int = 1000, history=None):
         self.fw = fw
         self.source = source              # {"kind": "simulated"|"pcap"|"live", "label": ...}
         self.started = time.time()
@@ -61,6 +62,12 @@ class Monitor:
         self._pending_events: dict[int, dict] = {}
         self.subscribers: list[queue.Queue] = []
         self.lock = threading.Lock()
+        self.history = history
+        self._dirty_seconds: set[int] = set()
+        self._unsaved_events: dict[int, dict] = {}
+        self._unsaved_packets: list[dict] = []
+        if history:
+            self._restore(history.load(HISTORY_SECONDS, 300, self.held.maxlen))
         fw.listeners.append(self.on_decision)
         self.event("system", "info", "PyWall started", f"Traffic source: {source.get('label', source['kind'])}")
         threading.Thread(target=self._broadcast_loop, daemon=True).start()
@@ -80,15 +87,19 @@ class Monitor:
                 "rule": d.rule.id if d.rule else None, "ruleName": d.rule.describe() if d.rule else None,
                 "idsAlert": d.ids_alert, "rateLimited": d.rate_limited, "header": d.header.hex(),
             }
+            if d.reject:
+                rec["reject"], rec["replyHeader"] = d.reject, d.reply[:60].hex()
             if p is not None:
                 rec.update({"src": p.src_ip, "dst": p.dst_ip, "sport": p.src_port, "dport": p.dst_port,
                             "proto": p.proto_name, "len": p.length, "ttl": p.ttl, "flags": p.flag_str,
-                            "icmpType": p.icmp_type, "icmpCode": p.icmp_code, "service": service_of(p)})
+                            "icmpType": p.icmp_type, "icmpCode": p.icmp_code, "service": service_of(p),
+                            "v": p.version})
             else:
                 rec.update({"src": None, "dst": None, "proto": "?", "len": len(d.header), "service": "malformed"})
             self.packets.append(rec)
             if rec["verdict"] == "DROP":
                 self.held.append(rec)
+                self._unsaved_packets.append(rec)
             self._pending_packets.append(rec)
             self._count(rec)
             self._derive_events(d, rec)
@@ -100,6 +111,7 @@ class Monitor:
             c = self.seconds[sec] = Counter()
             for old in [s for s in self.seconds if s < sec - HISTORY_SECONDS]:
                 del self.seconds[old]
+        self._dirty_seconds.add(sec)
         v = rec["verdict"]
         c[v] += 1
         c["bytes"] += rec.get("len") or 0
@@ -107,9 +119,15 @@ class Monitor:
         c[f"proto:{rec['proto']}"] += 1
         if v == "DROP":
             c[f"stage:{rec['stage']}"] += 1
+            if rec.get("reject"):
+                c["rejected"] += 1
         self.totals[v] += 1
         self.totals[f"stage:{rec['stage']}:{v}"] += 1
         self.totals["bytes"] += rec.get("len") or 0
+        if rec.get("reject"):
+            self.totals["rejected"] += 1
+        if rec.get("v") == 6:
+            self.totals["ipv6"] += 1
         if rec.get("src"):
             key = (rec["src"], "local" if self._local(rec["src"]) else "external",
                    "fast" if rec["stage"] == "conntrack" and v == "ACCEPT" else "rules",
@@ -131,6 +149,7 @@ class Monitor:
                 ev["last"] = round(t, 3)
                 ev["packets"] = (ev["packets"] + [packet])[-20:] if packet else ev["packets"]
                 self._pending_events[ev["id"]] = ev
+                self._unsaved_events[ev["id"]] = ev
                 return ev
         self.event_seq += 1
         ev = {"id": self.event_seq, "kind": kind, "severity": severity, "title": title, "detail": detail,
@@ -138,6 +157,7 @@ class Monitor:
               "packets": [packet] if packet else []}
         self.events.append(ev)
         self._pending_events[ev["id"]] = ev
+        self._unsaved_events[ev["id"]] = ev
         if coalesce:
             self._open[coalesce] = ev
         return ev
@@ -146,7 +166,8 @@ class Monitor:
         src, pid, t = rec.get("src"), rec["id"], rec["t"]
         if d.ids_alert:
             until = self.fw.ids.blocked.get(src, (0, ""))[0]
-            self.event("ids", "critical", f"{d.ids_alert.split(' (')[0].capitalize()} detected",
+            name = d.ids_alert.split(" (")[0]
+            self.event("ids", "critical", f"{name[0].upper()}{name[1:]} detected",
                        f"{d.ids_alert}. Source banned for {self.fw.ids.block_seconds} s.",
                        src=src, packet=pid, t=t)
             self._known_bans[src] = time.time() + max(0.0, until - self.fw.clock())
@@ -168,8 +189,9 @@ class Monitor:
                        src=src, packet=pid, coalesce=("blacklist", src), t=t)
         elif d.stage == "rule" and d.rule and (d.rule.log or d.verdict == "DROP"):
             sev = "notice" if d.verdict == "DROP" else "info"
-            self.event("rule", sev, f"Rule {d.rule.id} {'dropped' if d.verdict == 'DROP' else 'allowed'} traffic",
-                       d.rule.describe(), src=src, packet=pid,
+            did = "rejected" if d.rule.action == "REJECT" else "dropped" if d.verdict == "DROP" else "allowed"
+            detail = d.rule.describe() + (f"; the sender got a {d.reject}" if d.reject else "")
+            self.event("rule", sev, f"Rule {d.rule.id} {did} traffic", detail, src=src, packet=pid,
                        coalesce=("rule", d.rule.id, src, d.verdict), t=t)
 
     def _check_bans(self) -> None:
@@ -179,6 +201,57 @@ class Monitor:
                 del self._known_bans[ip]
                 self.event("ids", "info", "Ban lifted", "The IDS ban expired; traffic is judged normally again.",
                            src=ip)
+
+    def note_ban(self, ip: str, seconds: float) -> None:
+        """A ban added from the dashboard: report when it expires, like an IDS ban."""
+        self._known_bans[ip] = time.time() + seconds
+
+    def note_unban(self, ip: str) -> None:
+        self._known_bans.pop(ip, None)
+
+    # ------------------------------------------------------------- history
+    def _restore(self, saved: dict) -> None:
+        self.seq, self.event_seq = saved["maxPacket"], saved["maxEvent"]
+        self.events.extend(saved["events"])
+        self.held.extend(saved["packets"])
+        for t, c in saved["seconds"].items():
+            self.seconds[int(t)] = Counter(c)
+        if saved["events"]:
+            self.event("system", "info", "Earlier history loaded",
+                       f"{len(saved['events'])} events and {len(saved['packets'])} blocked packets from earlier sessions, "
+                       f"from {self.history.path}")
+
+    def _save_history(self) -> None:
+        with self.lock:
+            events, self._unsaved_events = list(self._unsaved_events.values()), {}
+            events = [dict(e) for e in events]
+            packets, self._unsaved_packets = self._unsaved_packets, []
+            secs = {t: dict(self.seconds[t]) for t in self._dirty_seconds if t in self.seconds}
+            self._dirty_seconds = set()
+            seq, dropped = self.seq, self.totals["DROP"]
+        self.history.save(events, packets, secs, seq, dropped)
+
+    # ---------------------------------------------------------- connections
+    def connections(self, limit: int = 500) -> dict:
+        """The connection-tracking table, most recently active first."""
+        ct, now = self.fw.conntrack, self.fw.clock()
+        wall = time.time()
+        live = [f for f in ct.flows.values() if now - f.last_seen <= f.timeout]
+        live.sort(key=lambda f: f.last_seen, reverse=True)
+        names = {6: "tcp", 17: "udp", 1: "icmp", 58: "icmpv6"}
+        out = []
+        for f in live[:limit]:
+            proto, a, ap, b, bp = f.key
+            out.append({
+                "key": f"{proto}|{a}|{ap}|{b}|{bp}", "proto": names.get(proto, str(proto)),
+                "src": a, "sport": ap if proto in (6, 17) else None, "dst": b, "dport": bp if proto in (6, 17) else None,
+                "state": f.state, "packets": f.packets, "replies": f.replies, "bytes": f.bytes,
+                "opened": round(f.wall, 3), "lastSeen": round(wall - (now - f.last_seen), 3),
+                "timeout": f.timeout, "expiresIn": round(f.timeout - (now - f.last_seen), 1),
+                "outbound": self.fw.direction_of_ip(b) == "out",
+            })
+        states = Counter(f.state for f in live)
+        return {"total": len(live), "states": dict(states), "connections": out}
 
     # ------------------------------------------------------------- snapshots
     def stats(self) -> dict:
@@ -196,6 +269,7 @@ class Monitor:
             "byStage": {k.split(":")[1]: v for k, v in self.totals.items()
                         if k.startswith("stage:") and k.endswith(":DROP")},
             "fastPath": self.totals["stage:conntrack:ACCEPT"],
+            "rejected": self.totals["rejected"], "ipv6": self.totals["ipv6"],
             "uptime": round(now - self.started),
         }
 
@@ -221,9 +295,11 @@ class Monitor:
         return out
 
     def rules(self) -> list[dict]:
+        findings = analyse(self.fw.cfg.rules)
         out = []
         for pos, r in enumerate(self.fw.cfg.rules, start=1):
-            out.append({"id": r.id, "position": pos, "hits": r.hits, "enabled": r.enabled, "spec": r.spec})
+            out.append({"id": r.id, "position": pos, "hits": r.hits, "enabled": r.enabled, "spec": r.spec,
+                        "finding": findings.get(r.id)})
         return out
 
     def config(self) -> dict:
@@ -231,10 +307,13 @@ class Monitor:
         return {"defaultPolicy": cfg.default_policy, "stateful": cfg.stateful, "dropInvalid": cfg.drop_invalid,
                 "localNetworks": [str(n) for n in cfg.local_networks],
                 "blacklist": [str(n) for n in cfg.blacklist], "whitelist": [str(n) for n in cfg.whitelist],
+                "pickupOutbound": cfg.pickup_outbound,
+                "history": {"path": str(self.history.path), "session": self.history.session} if self.history else None,
                 "ids": {"enabled": self.fw.ids.enabled, "blockSeconds": self.fw.ids.block_seconds,
                         "synFlood": self.fw.ids.syn_cfg, "portScan": self.fw.ids.scan_cfg,
                         "icmpFlood": self.fw.ids.icmp_cfg},
-                "bans": [{"src": ip, "reason": r, "remaining": round(until - self.fw.clock(), 1)}
+                "bans": [{"src": ip, "reason": r, "remaining": round(until - self.fw.clock(), 1),
+                          "manual": r.startswith("banned by hand")}
                          for ip, (until, r) in self.fw.ids.blocked.items() if until > self.fw.clock()]}
 
     def snapshot(self) -> dict:
@@ -279,5 +358,7 @@ class Monitor:
                     payload["flows"] = self.flows()
                     payload["series"] = self.series(5)
                     payload["config"] = self.config()
-                    payload["rules"] = [{"id": r.id, "hits": r.hits} for r in self.fw.cfg.rules]
+                    payload["rules"] = self.rules()
             self.publish("update", payload)
+            if self.history and tick % 4 == 0:
+                self._save_history()

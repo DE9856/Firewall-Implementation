@@ -8,9 +8,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .packet import PROTO_NUMBERS, Packet
+from .packet import PROTO_NAMES, PROTO_NUMBERS, Packet
 
-ACTIONS = ("ACCEPT", "DROP")
+ACTIONS = ("ACCEPT", "DROP", "REJECT")   # REJECT = drop, and tell the sender (TCP RST / ICMP error)
+POLICIES = ("ACCEPT", "DROP")
 DIRECTIONS = ("in", "out", "any")
 
 
@@ -137,9 +138,8 @@ class Rule:
         if self.direction != "any":
             add("direction", self.direction, direction, self.direction == direction)
         if self.protocol is not None:
-            names = {1: "icmp", 6: "tcp", 17: "udp"}
-            add("protocol", names.get(self.protocol, str(self.protocol)),
-                names.get(pkt.protocol, str(pkt.protocol)), pkt.protocol == self.protocol)
+            add("protocol", PROTO_NAMES.get(self.protocol, str(self.protocol)),
+                PROTO_NAMES.get(pkt.protocol, str(pkt.protocol)), pkt.protocol == self.protocol)
         if self.src:
             add("source", ", ".join(map(str, self.src)), pkt.src_ip, _ip_in(pkt.src_ip, self.src))
         if self.dst:
@@ -249,7 +249,7 @@ def load_config(path: str | Path, lan=None) -> Config:
 def config_from_dict(data: dict) -> Config:
     lan = _parse_net(data.get("local_networks")) or []
     policy = str(data.get("default_policy", "DROP")).upper()
-    if policy not in ACTIONS:
+    if policy not in POLICIES:
         raise RuleError("default_policy must be ACCEPT or DROP")
     rules = []
     for i, r in enumerate(data.get("rules", []), start=1):

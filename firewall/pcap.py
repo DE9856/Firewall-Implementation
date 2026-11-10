@@ -7,10 +7,11 @@ import struct
 from typing import Iterator
 
 LINKTYPE_ETHERNET, LINKTYPE_RAW, LINKTYPE_LINUX_SLL, LINKTYPE_LINUX_SLL2 = 1, 101, 113, 276
+IP_ETHERTYPES = (0x0800, 0x86DD)       # IPv4, IPv6
 
 
 def read_pcap(path: str) -> Iterator[tuple[float, bytes]]:
-    """Yield (timestamp, ipv4_bytes) for every IPv4 packet in the file."""
+    """Yield (timestamp, ip_bytes) for every IPv4 and IPv6 packet in the file."""
     with open(path, "rb") as f:
         header = f.read(24)
         if len(header) < 24:
@@ -44,17 +45,17 @@ def _strip_link(frame: bytes, linktype: int) -> bytes | None:
         while ethertype in (0x8100, 0x88A8):        # VLAN tags
             ethertype = struct.unpack("!H", frame[offset + 2:offset + 4])[0]
             offset += 4
-        if ethertype != 0x0800:
+        if ethertype not in IP_ETHERTYPES:
             return None
         data = frame[offset:]
     elif linktype == LINKTYPE_LINUX_SLL:
-        if struct.unpack("!H", frame[14:16])[0] != 0x0800:
+        if struct.unpack("!H", frame[14:16])[0] not in IP_ETHERTYPES:
             return None
         data = frame[16:]
     elif linktype == LINKTYPE_LINUX_SLL2:
-        if struct.unpack("!H", frame[0:2])[0] != 0x0800:
+        if struct.unpack("!H", frame[0:2])[0] not in IP_ETHERTYPES:
             return None
         data = frame[20:]
     else:
         raise ValueError(f"unsupported link type {linktype}")
-    return data if data and data[0] >> 4 == 4 else None
+    return data if data and data[0] >> 4 in (4, 6) else None

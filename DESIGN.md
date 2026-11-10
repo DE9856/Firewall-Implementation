@@ -224,7 +224,7 @@ The system's one move. A selection is a 1px paper-ink line: under a segmented op
 ### Verdict and severity marks
 Shape plus colour plus word, always. A 9px mark precedes the word.
 - **Allowed:** teal 2px ring.
-- **Held:** coral square with 2px radius filled with a 45-degree hatch.
+- **Held:** coral square with 2px radius filled with a 45-degree hatch. A packet a REJECT rule stopped is held too: same mark, the word "Rejected", and the inspector names the reply sent back (TCP RST or ICMP error).
 - **IDS / ban / rate limit:** amber diamond (filled for critical, outlined for warning).
 - **Information:** grey 1.5px hollow circle.
 The same hatch fills held legend swatches, chart segments, event-strip stacks, and flow-map bins and ribbons.
@@ -262,6 +262,16 @@ One panel divided by 1px border lines into seven cells; the lead figure (packets
 - Undecided traffic is transit grey, forwarded is teal, held is the coral hatch; idle connections are dotted guides.
 - Dots are real packets sampled from the live stream (about 100 per second at most), white until their stage decides, then teal or coral; held dots fade in the bin.
 - Clicking a source, service, stage or bin selects it, dims the rest, and filters the side panel; a legend line under the map names every encoding.
+
+### Attack bar (simulated traffic only)
+A row under the map's play bar: a muted "Try an attack" label with a bolt icon, four small buttons (port scan, SYN flood, ping flood, spoofed replies), then one live status line in muted text that names the attack and its source (a link that selects it on the map) and follows it to the outcome ("Detected and banned: …"). The newest attacker and current bans are pinned on the map, at most two, so their streams are always drawn separately instead of being grouped.
+
+### Rule analysis and impact preview
+- A rule that can never decide anything gets one amber line under its sentence in the table (outlined diamond plus "Never decides: rule N above catches these packets first", or "Redundant"); its detail panel repeats the explanation in an amber-tinted box with the fix as a small button ("Move it above rule N").
+- **What this change would do** sits in the rule editor below the rule sentence, in a well-coloured block: one summary sentence with mono counts (newly blocked in coral ink, newly allowed in teal ink), then up to six groups (source, service, count, before → after with verdict marks and the deciding rule), then a faint footnote on what the replay leaves out. It refreshes 350ms after typing stops and dims to 60% while refreshing. The same block appears in the delete confirmation.
+
+### Connections view
+A table in the packet-list style: protocol, opener (mono, with a faint "this host" / "remote"), peer, a state pill (teal only for an open connection, neutral otherwise), packets with replies in brackets, bytes, active time, and an idle-timeout bar (56px, faint fill on the idle track) with seconds left. The detail panel shows a four-step TCP state line (Opening, Open, Closing, Forgotten; the current one in paper ink with a teal top rule) and a ladder diagram: two dashed lifelines, one arrow per packet in time order, labelled in mono (SYN, SYN + ACK, data + ACK, FIN + ACK) with byte sizes at the sending end; allowed arrows teal, held ones a dashed coral line ending in a cross at mid-span.
 
 ### Inspector and panels
 Panels are surface-coloured blocks with a 48px head (16px 600 title, muted aside on the right). Inspectors stack sections separated by 1px rules with 13px 600 sub-heads; fact lists are two-column grids (label muted, value mono). Ranked lists put a 2-3px bar under each row, the leader in paper ink.

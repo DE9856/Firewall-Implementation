@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import ipaddress
 
-from .conntrack import ESTABLISHED, INVALID
-from .packet import Packet
+from .conntrack import INVALID
+from .packet import RST, Packet, reject_reply
 
 
 def _in(ip: str, nets) -> bool:
@@ -33,7 +33,7 @@ def explain(fw, pkt: Packet, direction: str | None = None) -> dict:
         if verdict and decided is None:
             decided = (name, verdict, detail)
 
-    stage("parse", "pass", f"IPv4 {pkt.proto_name.upper()} packet, {pkt.length} bytes")
+    stage("parse", "pass", f"IPv{pkt.version} {pkt.proto_name.upper()} packet, {pkt.length} bytes")
     if cfg.whitelist and _in(pkt.src_ip, cfg.whitelist):
         stage("whitelist", "match", f"{pkt.src_ip} is whitelisted", "ACCEPT")
     else:
@@ -55,12 +55,12 @@ def explain(fw, pkt: Packet, direction: str | None = None) -> dict:
               if direction == "in" else "outbound traffic is not inspected by the IDS")
     rules_out = []
     if decided is None and cfg.stateful:
-        key = (pkt.protocol, pkt.src_ip, pkt.src_port or 0, pkt.dst_ip, pkt.dst_port or 0)
-        rev = (pkt.protocol, pkt.dst_ip, pkt.dst_port or 0, pkt.src_ip, pkt.src_port or 0)
-        flow = fw.conntrack.flows.get(key) or fw.conntrack.flows.get(rev)
-        if flow and t - flow.last_seen <= flow.timeout and pkt.protocol != 1:
+        state, flow = fw.conntrack.peek(pkt, t)
+        if flow:
             stage("conntrack", "match", f"part of a tracked connection ({flow.state})", "ACCEPT")
-        elif not fw.conntrack._can_open(pkt) and cfg.drop_invalid:
+        elif state == INVALID and cfg.pickup_outbound and direction == "out" and not pkt.has_flag(RST):
+            stage("conntrack", "pass", "outbound packet of a connection opened before PyWall started: judged as NEW")
+        elif state == INVALID and cfg.drop_invalid:
             stage("conntrack", "match", "cannot open a connection and none exists (INVALID)", "DROP")
         else:
             stage("conntrack", "pass", "NEW connection, goes to the rule table")
@@ -71,7 +71,13 @@ def explain(fw, pkt: Packet, direction: str | None = None) -> dict:
             rules_out.append({"id": rule.id, "name": rule.describe(), "action": rule.action,
                               "enabled": rule.enabled, "matched": ok, "conditions": conds})
             if ok:
-                stage("rule", "match", f"rule {rule.id} ({rule.describe()}) matched first", rule.action)
+                if rule.action == "REJECT":
+                    reply = reject_reply(pkt, b"")
+                    reject = reply[1] if reply else None
+                    stage("rule", "match", f"rule {rule.id} ({rule.describe()}) matched first: rejected"
+                          + (f", the sender gets a {reject}" if reject else " (no reply: errors are never answered)"), "DROP")
+                else:
+                    stage("rule", "match", f"rule {rule.id} ({rule.describe()}) matched first", rule.action)
                 break
         else:
             stage("rule", "pass", "no rule matched")

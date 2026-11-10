@@ -11,7 +11,7 @@
 .ev-title { font-weight: 500; }
 .ev-count { color: var(--muted); font-weight: 400; font-size: var(--fs-small); }
 .ev-detail { color: var(--muted); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ev-row.compact .ev-detail { -webkit-line-clamp: 1; }
+.ev-row.compact .ev-detail { -webkit-line-clamp: 2; }
 
 /* Severity marks: shape as well as colour. Diamond = attack detected, outline diamond = warning,
    hatched square = held traffic, hollow circle = information. */

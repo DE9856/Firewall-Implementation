@@ -3,6 +3,7 @@ import { api, refreshRules } from "../../api/store";
 import type { RuleRec, RuleSpec } from "../../api/types";
 import { Icon } from "../../components/Icon";
 import { ruleSentence } from "../../lib/format";
+import { Impact, useImpact } from "./Impact";
 
 const join = (v: unknown) => (v == null ? "" : Array.isArray(v) ? v.join(", ") : String(v));
 const split = (v: string): string | string[] | undefined => {
@@ -15,7 +16,9 @@ const ports = (v: string) => {
   return s == null ? undefined : Array.isArray(s) ? s.map(conv) : conv(s);
 };
 
-export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; count: number; onDone: (id: number | null) => void }) {
+export function RuleEditor({ rule, count, nextId, onDone, readOnly = false }: {
+  rule: RuleRec | null; count: number; nextId: number; onDone: (id: number | null) => void; readOnly?: boolean;
+}) {
   const s = rule?.spec;
   const [f, setF] = useState({
     name: s?.name ?? "", action: s?.action ?? "DROP", direction: s?.direction ?? "in", protocol: s?.protocol ?? "tcp",
@@ -27,19 +30,23 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const ported = f.protocol === "tcp" || f.protocol === "udp";
+  const icmp = f.protocol === "icmp" || f.protocol === "icmpv6";
 
   const spec: RuleSpec = {
     name: f.name.trim() || undefined, action: f.action as RuleSpec["action"],
     direction: f.direction as RuleSpec["direction"], protocol: f.protocol === "any" ? undefined : (f.protocol as RuleSpec["protocol"]),
     src: split(f.src), dst: split(f.dst),
     src_port: ported ? ports(f.src_port) : undefined, dst_port: ported ? ports(f.dst_port) : undefined,
-    icmp_type: f.protocol === "icmp" && f.icmp_type !== "" ? Number(f.icmp_type) : undefined,
+    icmp_type: icmp && f.icmp_type !== "" ? Number(f.icmp_type) : undefined,
     tcp_flags: f.protocol === "tcp" && f.tcp_flags.trim() ? f.tcp_flags.trim().toUpperCase() : undefined,
     rate_limit: f.rate_limit.trim() || undefined, log: f.log || undefined, enabled: f.enabled ? undefined : false,
   };
 
+  const impact = useImpact(rule ? { op: "update", id: rule.id, spec } : { op: "create", spec, position: Number(f.position) });
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     setSaving(true); setError(null);
     try {
       const res = rule ? await api.updateRule(rule.id, spec) : await api.createRule(spec, Number(f.position));
@@ -51,7 +58,8 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
   return (
     <aside className="panel ru-panel" aria-label={rule ? `Edit rule ${rule.id}` : "New rule"}>
       <div className="panel-head">
-        <h2>{rule ? `Edit rule ${rule.id}` : "New rule"}</h2>
+        <div><h2>{readOnly ? (rule ? `Try changing rule ${rule.id}` : "Try a new rule") : rule ? `Edit rule ${rule.id}` : "New rule"}</h2>
+          {readOnly && <p className="muted small">This demo is read-only: you can see the effect of a change, but not save it.</p>}</div>
         <button className="btn ghost small" onClick={() => onDone(rule?.id ?? null)} aria-label="Cancel"><Icon name="close" size={14} /></button>
       </div>
       <form className="ru-form" onSubmit={submit}>
@@ -60,7 +68,11 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
           <div className="seg">
             <button type="button" aria-pressed={f.action === "ACCEPT"} onClick={() => setF({ ...f, action: "ACCEPT" })}>Allow</button>
             <button type="button" aria-pressed={f.action === "DROP"} onClick={() => setF({ ...f, action: "DROP" })}>Drop</button>
+            <button type="button" aria-pressed={f.action === "REJECT"} onClick={() => setF({ ...f, action: "REJECT" })}>Reject</button>
           </div>
+          <p className="faint small">{f.action === "DROP" ? "Discards the packet silently: the sender waits and times out. Best against strangers on the internet."
+            : f.action === "REJECT" ? "Discards the packet and tells the sender (TCP reset or ICMP error), so it fails at once. Friendlier for your own programs."
+              : "Lets the packet through; replies on the connection are then allowed automatically."}</p>
         </fieldset>
         <div className="two">
           <label><span>Direction</span>
@@ -69,11 +81,11 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
             </select></label>
           <label><span>Protocol</span>
             <select className="input" value={f.protocol} onChange={set("protocol")}>
-              <option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option><option value="any">Any</option>
+              <option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option><option value="icmpv6">ICMPv6</option><option value="any">Any</option>
             </select></label>
         </div>
         <div className="two">
-          <label><span>Source</span><input className="input mono" value={f.src} onChange={set("src")} placeholder="any, $LAN, or 10.0.0.0/8" /></label>
+          <label><span>Source</span><input className="input mono" value={f.src} onChange={set("src")} placeholder="any, $LAN, 10.0.0.0/8 or 2001:db8::/32" /></label>
           <label><span>Destination</span><input className="input mono" value={f.dst} onChange={set("dst")} placeholder="any" /></label>
         </div>
         {ported && (
@@ -82,7 +94,7 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
             <label><span>Destination ports</span><input className="input mono" value={f.dst_port} onChange={set("dst_port")} placeholder="22, 8000-8100" /></label>
           </div>
         )}
-        {f.protocol === "icmp" && <label><span>ICMP type</span><input className="input mono" value={f.icmp_type} onChange={set("icmp_type")} placeholder="8 = echo request" inputMode="numeric" /></label>}
+        {icmp && <label><span>{f.protocol === "icmpv6" ? "ICMPv6 type" : "ICMP type"}</span><input className="input mono" value={f.icmp_type} onChange={set("icmp_type")} placeholder={f.protocol === "icmpv6" ? "128 = echo request, 135 = neighbour solicitation" : "8 = echo request"} inputMode="numeric" /></label>}
         {f.protocol === "tcp" && <label><span>TCP flags</span><input className="input mono" value={f.tcp_flags} onChange={set("tcp_flags")} placeholder="S!A = SYN set, ACK clear" /></label>}
         <label><span>Rate limit per source</span><input className="input mono" value={f.rate_limit} onChange={set("rate_limit")} placeholder="none, or 5/s, 60/m" /></label>
         <div className="checks">
@@ -96,11 +108,18 @@ export function RuleEditor({ rule, count, onDone }: { rule: RuleRec | null; coun
             </select></label>
         )}
         <div className="preview"><span className="muted small">This rule</span><p>{ruleSentence(spec)}</p></div>
+        <Impact {...impact} ruleId={rule?.id ?? nextId} readOnly={readOnly} />
         {error && <div className="error-box" role="alert">Not saved: {error}</div>}
         <div className="ru-actions">
-          <button className="btn primary" type="submit" disabled={saving}>{saving ? "Saving…" : rule ? "Save rule" : "Add rule"}</button>
-          <button className="btn ghost" type="button" onClick={() => onDone(rule?.id ?? null)}>Cancel</button>
-          <span className="faint small">Saved to config/rules.json and applied at once.</span>
+          {readOnly ? (
+            <button className="btn" type="button" onClick={() => onDone(rule?.id ?? null)}>Done</button>
+          ) : (
+            <>
+              <button className="btn primary" type="submit" disabled={saving}>{saving ? "Saving…" : rule ? "Save rule" : "Add rule"}</button>
+              <button className="btn ghost" type="button" onClick={() => onDone(rule?.id ?? null)}>Cancel</button>
+              <span className="faint small">Saved to config/rules.json and applied at once.</span>
+            </>
+          )}
         </div>
       </form>
     </aside>

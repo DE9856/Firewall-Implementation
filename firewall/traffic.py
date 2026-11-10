@@ -2,8 +2,10 @@
 
 Builds real IPv4 packets (valid headers and checksums) and feeds them through the
 real Firewall in real time: normal sessions (outbound HTTPS and DNS, web visitors,
-LAN SSH, pings) plus recurring attack episodes (port scan, SYN flood, spoofed
-ACKs, blocked ports, a blacklisted source, ping bursts, a malformed packet).
+LAN SSH, pings, some of it over IPv6) plus recurring attack episodes (port scan,
+SYN flood, spoofed ACKs, blocked ports, a blacklisted source, ping bursts, a
+malformed packet). `launch()` starts an attack on demand, from a fresh address,
+for the dashboard's attack buttons.
 
 The packets and verdicts are real; the traffic pattern is synthetic, and the
 dashboard labels this source as "Simulated traffic" everywhere.
@@ -26,6 +28,19 @@ DNS_SERVERS = ["8.8.8.8", "1.1.1.1"]
 SCANNERS = ["203.0.113.66", "203.0.113.87"]
 FLOODERS = ["198.51.100.77", "198.51.100.23"]
 BLACKLISTED = "185.220.101.5"
+# IPv6 peers: documentation addresses (2001:db8::/32), never routed on the internet
+WEB_SERVERS_V6 = ["2001:db8:cafe::443", "2001:db8:f00d::1"]
+DNS_SERVERS_V6 = ["2001:db8:53::53"]
+VISITORS_V6 = ["2001:db8:beef::7", "2001:db8:aa::42"]
+# fresh attacker addresses for on-demand attacks (documentation ranges)
+ATTACK_POOLS = {"port_scan": "203.0.113.{}", "syn_flood": "198.51.100.{}", "ping_flood": "203.0.113.{}",
+                "spoofed": "198.51.100.{}"}
+ATTACKS = {
+    "port_scan": "SYN packets to 30 different ports in about a second",
+    "syn_flood": "40 connection requests to port 80 in half a second",
+    "ping_flood": "30 pings in half a second",
+    "spoofed": "TCP replies and a ping reply for connections that never existed",
+}
 
 
 class TrafficGenerator:
@@ -33,8 +48,13 @@ class TrafficGenerator:
         self.fw = fw
         self.rng = random.Random(seed)
         self.speed = speed
-        nets = fw.cfg.local_networks or [ipaddress.ip_network("192.168.1.0/24")]
+        nets = [n for n in fw.cfg.local_networks if n.version == 4] or [ipaddress.ip_network("192.168.1.0/24")]
         hosts = list(itertools.islice(nets[0].hosts(), 30))
+        nets6 = [n for n in fw.cfg.local_networks if n.version == 6]
+        self.host6 = str(nets6[0].network_address + 0x10) if nets6 else None    # e.g. 2001:db8:1::10
+        self.lan_peer6 = str(nets6[0].network_address + 0x25) if nets6 else None
+        self._next_attacker = 100
+        self.lock = threading.Lock()
         self.host = str(hosts[9]) if len(hosts) > 9 else str(hosts[0])      # e.g. 192.168.1.10
         self.lan_peer = str(hosts[24]) if len(hosts) > 24 else self.host
         self.queue: list = []
@@ -43,7 +63,8 @@ class TrafficGenerator:
 
     # --------------------------------------------------------------- queue
     def at(self, delay: float, raw: bytes, direction: str) -> None:
-        heapq.heappush(self.queue, (time.time() + delay / self.speed, next(self.counter), raw, direction))
+        with self.lock:
+            heapq.heappush(self.queue, (time.time() + delay / self.speed, next(self.counter), raw, direction))
 
     def run(self) -> None:
         next_session = time.time()
@@ -53,14 +74,20 @@ class TrafficGenerator:
         while not self.stop.is_set():
             now = time.time()
             if now >= next_session:
-                self.rng.choice([self.https, self.https, self.https, self.dns, self.dns,
-                                 self.visitor, self.visitor, self.lan_ssh, self.ping])()
+                choices = [self.https, self.https, self.https, self.dns, self.dns,
+                           self.visitor, self.visitor, self.lan_ssh, self.ping]
+                if self.host6:
+                    choices += [self.https6, self.dns6, self.visitor6, self.ping6]
+                self.rng.choice(choices)()
                 next_session = now + self.rng.uniform(0.08, 0.35) / self.speed
             if now >= next_episode:
                 next(episodes)()
                 next_episode = now + self.rng.uniform(14, 24) / self.speed
-            while self.queue and self.queue[0][0] <= now:
-                _, _, raw, direction = heapq.heappop(self.queue)
+            while True:
+                with self.lock:
+                    if not self.queue or self.queue[0][0] > now:
+                        break
+                    _, _, raw, direction = heapq.heappop(self.queue)
                 with self.fw.lock:
                     self.fw.process(raw, direction)
             time.sleep(0.01)
@@ -108,27 +135,69 @@ class TrafficGenerator:
     def lan_ssh(self):
         self.tcp_session(self.lan_peer, self.host, self.port(), 22, "in", "out", self.rng.randint(2, 6))
 
+    def https6(self):
+        self.tcp_session(self.host6, self.rng.choice(WEB_SERVERS_V6), self.port(), 443, "out", "in",
+                         self.rng.randint(2, 5))
+
+    def dns6(self):
+        server, p = self.rng.choice(DNS_SERVERS_V6), self.port()
+        self.at(0, build_udp(self.host6, server, p, 53, b"q" * 30), "out")
+        self.at(self.rng.uniform(0.01, 0.05), build_udp(server, self.host6, 53, p, b"a" * 110), "in")
+
+    def visitor6(self):
+        self.tcp_session(self.rng.choice(VISITORS_V6), self.host6, self.port(), 80, "in", "out",
+                         self.rng.randint(1, 3))
+
+    def ping6(self):
+        src = self.rng.choice(VISITORS_V6)
+        self.at(0, build_icmp(src, self.host6, 128), "in")
+        self.at(0.02, build_icmp(self.host6, src, 129), "out")
+
+    # ------------------------------------------------------ on-demand attacks
+    def launch(self, kind: str) -> dict:
+        """Start one attack now, from an address that is not banned, so a fresh
+        detection and ban follow. Returns what was sent."""
+        if kind not in ATTACKS:
+            raise ValueError(f"unknown attack {kind!r}; choose one of {', '.join(ATTACKS)}")
+        with self.fw.lock:
+            for _ in range(150):
+                self._next_attacker = 100 + (self._next_attacker - 99) % 150
+                src = ATTACK_POOLS[kind].format(self._next_attacker)
+                if not self.fw.ids.is_blocked(src, self.fw.clock()):
+                    break
+        sent = {"port_scan": self.port_scan, "syn_flood": self.syn_flood, "ping_flood": self.ping_flood,
+                "spoofed": self.spoofed}[kind](src)
+        return {"kind": kind, "src": src, "packets": sent, "what": ATTACKS[kind]}
+
     def ping(self):
         src = self.rng.choice(VISITORS)
         self.at(0, build_icmp(src, self.host, 8), "in")
         self.at(0.02, build_icmp(self.host, src, 0), "out")
 
     # ------------------------------------------------------------- episodes
-    def port_scan(self):
-        src, base = self.rng.choice(SCANNERS), self.rng.choice([1, 20, 1000])
+    def port_scan(self, src: str | None = None) -> int:
+        src, base = src or self.rng.choice(SCANNERS), self.rng.choice([1, 20, 1000])
         for i, dport in enumerate(range(base, base + 30)):
             self.at(i * 0.04, build_tcp(src, self.host, 50000 + i, dport, SYN), "in")
+        return 30
 
-    def syn_flood(self):
-        src = self.rng.choice(FLOODERS)
+    def syn_flood(self, src: str | None = None) -> int:
+        src = src or self.rng.choice(FLOODERS)
         for i in range(40):
             self.at(i * 0.012, build_tcp(src, self.host, 20000 + i, 80, SYN), "in")
+        return 40
 
-    def spoofed(self):
-        src = self.rng.choice(VISITORS)
+    def ping_flood(self, src: str) -> int:
+        for i in range(30):
+            self.at(i * 0.016, build_icmp(src, self.host, 8), "in")
+        return 30
+
+    def spoofed(self, src: str | None = None) -> int:
+        src = src or self.rng.choice(VISITORS)
         for i in range(3):
             self.at(i * 0.3, build_tcp(src, self.host, 443, self.port(), ACK), "in")
         self.at(1.0, build_icmp(src, self.host, 0), "in")
+        return 4
 
     def blocked_ports(self):
         src = self.rng.choice(VISITORS)

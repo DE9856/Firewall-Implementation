@@ -1,5 +1,5 @@
 """Find the network a live demo runs on: the interface carrying the default
-route and the IPv4 subnets on it. Uses the `ip` command (iproute2)."""
+route and the subnets on it (IPv4, and IPv6 when asked). Uses the `ip` command (iproute2)."""
 
 from __future__ import annotations
 
@@ -30,17 +30,20 @@ def default_interface() -> str | None:
     return None
 
 
-def interface_networks(dev: str) -> list[str]:
-    """IPv4 subnets on `dev`, e.g. ["10.42.0.0/24"]."""
+def interface_networks(dev: str, ipv6: bool = False) -> list[str]:
+    """Subnets on `dev`, e.g. ["10.42.0.0/24"]; with ipv6, also its global IPv6 prefixes."""
     try:
-        data = _ip_json("-4", "addr", "show", "dev", dev)
+        data = _ip_json("addr", "show", "dev", dev)
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         return []
     nets = []
     for link in data:
         for a in link.get("addr_info", []):
-            if a.get("family") == "inet":
-                nets.append(str(ipaddress.ip_network(f"{a['local']}/{a['prefixlen']}", strict=False)))
+            fam = a.get("family")
+            if fam == "inet" or (ipv6 and fam == "inet6" and a.get("scope") == "global"):
+                net = str(ipaddress.ip_network(f"{a['local']}/{a['prefixlen']}", strict=False))
+                if net not in nets:
+                    nets.append(net)
     return nets
 
 

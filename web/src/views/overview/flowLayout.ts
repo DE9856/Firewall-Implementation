@@ -82,7 +82,7 @@ export function matches(sel: Selection, f: FlowRec, sourceIps: Set<string>): boo
   return true;
 }
 
-export function layout(input: FlowRec[], sel: Selection, width: number, height: number, maxNodes: number, parseHeld = 0): Layout {
+export function layout(input: FlowRec[], sel: Selection, width: number, height: number, maxNodes: number, parseHeld = 0, pinned: string[] = []): Layout {
   const W = Math.max(640, width), H = height;
   const all = input.filter((f) => colOf(f.stage) >= 0);     // every stage has a column; never file one under another
   const total = all.reduce((a, f) => a + f.count, 0);
@@ -98,8 +98,10 @@ export function layout(input: FlowRec[], sel: Selection, width: number, height: 
     if (f.verdict === "ACCEPT") bySvc.set(f.service, (bySvc.get(f.service) ?? 0) + f.count);
   }
   const srcList = [...bySrc.entries()].sort((a, b) => b[1].count - a[1].count);
-  const topSrc = srcList.slice(0, maxNodes);
-  const restSrc = srcList.slice(maxNodes);
+  // Pinned sources (a banned attacker, one just launched from the dashboard) always get their own stream.
+  const pins = [...new Set(pinned)].map((ip) => srcList.find(([s]) => s === ip)).filter((x): x is (typeof srcList)[number] => !!x).slice(0, 2);
+  const topSrc = [...pins, ...srcList.filter((x) => !pins.includes(x))].slice(0, maxNodes).sort((a, b) => b[1].count - a[1].count);
+  const restSrc = srcList.filter((x) => !topSrc.includes(x));
   const sourceIps = new Set(topSrc.map(([ip]) => ip));
   const svcList = [...bySvc.entries()].sort((a, b) => b[1] - a[1]);
   const topSvc = svcList.slice(0, maxNodes);

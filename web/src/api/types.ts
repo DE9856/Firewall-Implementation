@@ -1,6 +1,7 @@
 // Shapes returned by PyWall's server (firewall/monitor.py, firewall/server.py).
 
 export type Verdict = "ACCEPT" | "DROP";
+export type Action = "ACCEPT" | "DROP" | "REJECT";
 export type Stage = "parse" | "whitelist" | "blacklist" | "ids_ban" | "ids" | "conntrack" | "rule" | "policy";
 export type Direction = "in" | "out";
 
@@ -28,6 +29,9 @@ export interface PacketRec {
   icmpType?: number | null;
   icmpCode?: number | null;
   service: string;
+  v?: 4 | 6;                // IP version
+  reject?: string;          // REJECT rule: the reply sent back, e.g. "TCP RST"
+  replyHeader?: string;     // ... and its header bytes (hex)
 }
 
 export type Severity = "critical" | "warning" | "notice" | "info";
@@ -58,14 +62,16 @@ export interface Stats {
   byStage: Partial<Record<Stage, number>>;
   fastPath: number;
   uptime: number;
+  rejected?: number;
+  ipv6?: number;
 }
 
 export interface RuleSpec {
   id?: number;
   name?: string;
-  action: Verdict;
+  action: Action;
   direction?: "in" | "out" | "any";
-  protocol?: "tcp" | "udp" | "icmp" | "any";
+  protocol?: "tcp" | "udp" | "icmp" | "icmpv6" | "any";
   src?: string | string[];
   dst?: string | string[];
   src_port?: number | string | (number | string)[];
@@ -77,15 +83,27 @@ export interface RuleSpec {
   enabled?: boolean;
 }
 
+/** From the rule-table analysis: why this rule can never decide a packet. */
+export interface Finding { kind: "shadowed" | "redundant" | "never"; by: number | null; message: string; }
+
 export interface RuleRec {
   id: number;
   position: number;
   hits: number;
   enabled: boolean;
   spec: RuleSpec;
+  finding?: Finding | null;
 }
 
-export interface Ban { src: string; reason: string; remaining: number; }
+export interface Ban { src: string; reason: string; remaining: number; manual?: boolean; }
+
+export interface IdsSettings {
+  enabled: boolean;
+  block_seconds: number;
+  syn_flood: { threshold: number; window: number };
+  port_scan: { threshold: number; window: number };
+  icmp_flood: { threshold: number; window: number };
+}
 
 export interface ConfigInfo {
   defaultPolicy: Verdict;
@@ -94,6 +112,8 @@ export interface ConfigInfo {
   localNetworks: string[];
   blacklist: string[];
   whitelist: string[];
+  pickupOutbound?: boolean;
+  history?: { path: string; session: number } | null;
   ids: {
     enabled: boolean;
     blockSeconds: number;
@@ -152,8 +172,41 @@ export interface Update {
   flows?: FlowRec[];
   series?: SeriesPoint[];
   config?: ConfigInfo;
-  rules?: { id: number; hits: number }[];
+  rules?: RuleRec[];
 }
+
+export interface ConnRec {
+  key: string;
+  proto: string;
+  src: string;              // the side that opened the connection
+  sport: number | null;
+  dst: string;
+  dport: number | null;
+  state: string;            // SYN_SENT | ESTABLISHED | CLOSING | UDP | ICMP
+  packets: number;
+  replies: number;
+  bytes: number;
+  opened: number;
+  lastSeen: number;
+  timeout: number;
+  expiresIn: number;
+  outbound: boolean;
+}
+export interface ConnTable { total: number; states: Record<string, number>; connections: ConnRec[]; }
+
+export interface PreviewGroup {
+  src: string; dir: Direction; proto: string; port: number | null; service: string | null;
+  before: Verdict; after: Verdict; beforeBy: number | null; afterBy: number | null;
+  beforeAction: Action | "policy"; afterAction: Action | "policy"; count: number; packets: number[];
+}
+export interface Preview {
+  checked: number; from: number | null; to: number | null; changed: number;
+  nowBlocked: number; nowAllowed: number; otherRule: number;
+  groups: PreviewGroup[]; moreGroups: number; findings: Record<string, Finding>;
+}
+
+export interface Attack { kind: string; src: string; packets: number; what: string; }
+export interface SessionRec { id: number; started: number; ended: number | null; source: string; lastPacket: number; dropped: number; current: boolean; }
 
 export interface HeaderField { name: string; offset: number; length: number; value: string | number; note: string; }
 export interface HeaderLayer { layer: string; offset: number; length: number; fields: HeaderField[]; }
