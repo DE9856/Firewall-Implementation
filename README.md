@@ -388,7 +388,7 @@ Requests that change something must send the header `X-PyWall: 1` and a JSON bod
 | Private live network | `sudo .venv/bin/python demo/live_demo.py` | Real port scan and SYN flood detected and banned; 120 accepted, 122 dropped (recorded before REJECT and IPv6 were added) |
 | Real network | `serve --source live` + `demo/check_live.py` | HTTPS, DNS, ping work; Telnet really blocked (confirmed against a server that answers on every port; recorded before rule 2 became REJECT) |
 
-**Not yet verified on a real network:** REJECT replies on the wire (raw socket and firewall mark) and IPv6 filtering through ip6tables. Both are covered by unit tests and the simulation, but not by a live run. Before relying on them, run `doctor`, a `--dry-run`, then `demo/check_live.py` while enforcing.
+**REJECT on the wire** was verified live on the private test network (`demo/live_dashboard_lab.py`): outbound Telnet was refused in under 10 ms by the TCP reset PyWall sent. **Not yet verified on a real network:** IPv6 filtering through ip6tables, and REJECT on a real Wi-Fi/Ethernet interface. Both are covered by unit tests and the simulation. Before relying on them, run `doctor`, a `--dry-run`, then `demo/check_live.py` while enforcing.
 
 ## Project structure
 
@@ -423,6 +423,13 @@ DESIGN.md, PRODUCT.md   the dashboard's design system and product notes
 ```
 
 ## Demo videos
+
+Dashboard recordings (1920×1080, with captions):
+
+- `demo/pywall_simulation_demo.mp4` (3 min 10 s): simulation mode. The flow map, a port scan, SYN flood and spoofed replies launched from the dashboard and stopped, a packet journey, the packet inspector, a Telnet REJECT with its TCP reset, a TCP ladder diagram, a rule-change preview, the packet tester, analytics and security events.
+- `demo/pywall_live_dashboard_demo.mp4` (2 min 38 s): live mode on the private test network, real packets through NFQUEUE. Web allowed, SSH and RDP dropped, outbound Telnet refused at once by REJECT, a spoofed ACK dropped, a ping burst rate-limited, and a real port scan and SYN flood detected and banned. Each attack's real output is shown on screen. To run the same lab yourself: `sudo .venv/bin/python demo/live_dashboard_lab.py`, then open http://127.0.0.1:8092 and type the attack names (`web ssh rdp telnet spoof ping scan synflood`).
+
+Terminal recordings:
 
 - `demo/pywall_demo.mp4` (101 s): rule validation, a broken rule file being rejected, the attack simulation, a pcap replay and the unit tests.
 - `demo/pywall_live_demo.mp4` (about 3 min): the live run on the private test network.
